@@ -1,0 +1,188 @@
+{
+  "common": {
+    "ok": "확인",
+    "cancel": "취소",
+    "save": "저장",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "loading": "로딩 중...",
+    "empty": "데이터가 없습니다",
+    "error": "오류가 발생했습니다"
+  },
+  "auth": {
+    "title": "영어 학습 시작하기",
+    "google_signin": "Google로 로그인",
+    "signing_in": "로그인 중...",
+    "error": "로그인에 실패했습니다"
+  },
+  "onboarding": {
+    "title": "학습 레벨 선택",
+    "level_prompt": "현재 영어 실력에 맞는 레벨을 선택해주세요",
+    "cta_save": "저장하고 시작",
+    "saved": "레벨이 저장되었습니다",
+    "save_error": "레벨 저장에 실패했습니다"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "start_learning": "학습 시작",
+    "streak_card": {
+      "title": "연속 학습일"
+    },
+    "weekly_count": {
+      "title": "주간 문제 수"
+    },
+    "correct_rate": {
+      "title": "정답률"
+    },
+    "due_count": {
+      "title": "복습 예정"
+    },
+    "weak_concepts": {
+      "title": "약한 콘셉트 Top"
+    }
+  },
+  "sessionType": {
+    "title": "학습 유형 선택",
+    "standard": {
+      "title": "문제 혼합",
+      "desc": "복습과 신규 문제를 균형있게 학습합니다"
+    },
+    "review_only": {
+      "title": "복습만",
+      "desc": "복습이 필요한 문제만 학습합니다"
+    },
+    "new_only": {
+      "title": "새 문제만",
+      "desc": "새로운 문제만 학습합니다"
+    },
+    "weakness": {
+      "title": "약점 공략",
+      "desc": "최근 오답률이 높은 콘셉트를 집중 학습합니다"
+    },
+    "start_button": "시작",
+    "cancel_button": "취소"
+  },
+  "learn": {
+    "progress": "{current}/{total}",
+    "answer": {
+      "placeholder": "영어로 답변해주세요"
+    },
+    "check": "정답확인",
+    "skip": "건너뛰기",
+    "next": "다음",
+    "finish": "종료",
+    "explanation": {
+      "title": "설명",
+      "variant": "허용된 변형입니다",
+      "near_miss": "아쉽게 틀렸습니다"
+    },
+    "loading": "문제를 불러오는 중...",
+    "empty": "오늘 학습할 문제가 없습니다",
+    "error": "문제를 불러오는데 실패했습니다",
+    "label": {
+      "correct": "정답",
+      "variant": "변형",
+      "near_miss": "근접",
+      "wrong": "오답"
+    }
+  },
+  "result": {
+    "title": "학습 결과",
+    "correct_rate": "정답률",
+    "time_spent": "소요시간",
+    "weak_concepts": {
+      "title": "약한 콘셉트"
+    },
+    "back_to_dashboard": "대시보드로",
+    "loading": "결과를 불러오는 중...",
+    "error": "결과를 불러오는데 실패했습니다"
+  },
+  "history": {
+    "title": "학습 이력",
+    "session": {
+      "type": {
+        "standard": "문제 혼합",
+        "review_only": "복습만",
+        "new_only": "새 문제만",
+        "weakness": "약점 공략"
+      }
+    },
+    "list": {
+      "empty": "학습 이력이 없습니다"
+    },
+    "open_replay": "다시보기",
+    "replay": {
+      "title": "학습 리플레이",
+      "show_answer": "정답 보기",
+      "try_again": "다시 풀어보기",
+      "saved_count": "재시도 횟수가 기록되었습니다",
+      "note_no_srs": "이 화면의 재풀이 결과는 라이트너에 반영되지 않습니다"
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "display_name": "닉네임",
+    "preferred_level": "선호 레벨",
+    "daily_goal": "하루 목표",
+    "language": "언어",
+    "font_size": "폰트 크기",
+    "logout": "로그아웃",
+    "saved": "설정이 저장되었습니다",
+    "error": "설정 저장에 실패했습니다"
+  },
+  "admin": {
+    "common": {
+      "title": "관리자",
+      "only_admin": "관리자만 접근할 수 있습니다",
+      "loading": "로딩 중...",
+      "error": "오류가 발생했습니다"
+    },
+    "problems": {
+      "title": "문제 관리",
+      "search_placeholder": "문장이나 키워드로 검색",
+      "filter": {
+        "level": "레벨",
+        "concept": "콘셉트",
+        "status": "상태"
+      },
+      "status": {
+        "draft": "초안",
+        "approved": "승인됨"
+      },
+      "publish": "퍼블리시",
+      "table": {
+        "item": "문항",
+        "level": "레벨",
+        "status": "상태",
+        "created_at": "생성일"
+      },
+      "detail": {
+        "title": "문제 상세",
+        "save": "저장",
+        "preview": "미리보기",
+        "saved": "문제가 저장되었습니다",
+        "error": "문제 저장에 실패했습니다"
+      }
+    },
+    "scheduler": {
+      "title": "스케줄러",
+      "last_run": "마지막 실행",
+      "run_now": "지금 실행",
+      "run_success": "스케줄러가 실행되었습니다",
+      "run_error": "스케줄러 실행에 실패했습니다"
+    }
+  },
+  "policy": {
+    "srs": {
+      "title": "간격 반복 학습",
+      "box_rule": "박스 규칙",
+      "intervals": "반복 간격"
+    },
+    "queue": {
+      "priority": "우선순위"
+    },
+    "snapshot": {
+      "note": "스냅샷 정보"
+    }
+  }
+}

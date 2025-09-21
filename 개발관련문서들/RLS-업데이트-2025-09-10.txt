@@ -1,0 +1,16 @@
+RLS/보안 업데이트 (2025-09-10)
+
+1) SECURITY DEFINER 함수의 소유권 검증
+- `get_session_result`, `save_grade`는 SECURITY DEFINER로 실행되지만,
+  내부에서 반드시 `auth.uid()` 기반 소유권을 검증하도록 보강했습니다.
+- 세션/시도 소유자가 아닌 경우 42501(Forbidden) 예외를 발생시킵니다.
+
+2) 권한/그랜트
+- 두 함수 모두 `grant execute ... to authenticated`로 제한적 사용을 유지합니다.
+- RLS 정책은 기존 문서대로 `sessions/attempts/grades`에 대해 활성화되어야 하며,
+  함수 내부 검증은 RLS 우회로 인한 오남용을 방지하는 “이중 방어” 목적으로 적용합니다.
+
+3) 중복 시도와 인덱스(권장)
+- 하나의 `(session_id, item_id)`에 1회 시도만 허용할 경우, 유니크 인덱스를 추가하고
+  `submit_attempt`를 멱등 처리(기존 attempt_id 반환)하는 것을 권장합니다.
+
