@@ -1,7 +1,7 @@
-// 경로: app/api/payments/start/route.ts
-// ??��: PayApp 결제�??�작?�고 결제 URL??반환
-// ?�존관�? lib/supabase/server-client.ts, lib/supabase/service-client.ts, lib/payments/payapp-client.ts
-// ?�함 ?�수: POST()
+﻿// 경로: app/api/payments/start/route.ts
+// 역할: PayApp 결제 요청을 생성하고 결제 URL을 반환한다.
+// 의존관계: lib/supabase/server-client.ts, lib/supabase/service-client.ts, lib/payments/payapp-client.ts
+// 포함 함수: POST()
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server-client"
@@ -11,7 +11,7 @@ import { getPayAppConfig, requestPayApp } from "@/lib/payments/payapp-client"
 function sanitizePhone(raw: string) {
   const digits = raw.replace(/\D+/g, "")
   if (digits.length < 9 || digits.length > 11) {
-    throw new Error("?��???번호 ?�식???�바르�? ?�습?�다.")
+    throw new Error("휴대전화 번호 형식이 올바르지 않습니다.")
   }
   return digits
 }
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const { data: auth } = await supabase.auth.getUser()
 
   if (!auth?.user) {
-    return NextResponse.json({ error: "Unauthorized: 로그???�요" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized: 로그인이 필요합니다." }, { status: 401 })
   }
 
   let body: any = {}
@@ -34,10 +34,10 @@ export async function POST(req: Request) {
   const phoneRaw = String(body?.phone || "").trim()
 
   if (!productId) {
-    return NextResponse.json({ error: "product_id???�수?�니??" }, { status: 400 })
+    return NextResponse.json({ error: "product_id는 필수입니다." }, { status: 400 })
   }
   if (!phoneRaw) {
-    return NextResponse.json({ error: "phone?� ?�수?�니??" }, { status: 400 })
+    return NextResponse.json({ error: "phone은 필수입니다." }, { status: 400 })
   }
 
   try {
@@ -51,12 +51,12 @@ export async function POST(req: Request) {
 
     if (productError) throw productError
     if (!product || !product.is_active) {
-      return NextResponse.json({ error: "?�품???�용?????�습?�다." }, { status: 404 })
+      return NextResponse.json({ error: "해당 상품을 이용할 수 없습니다." }, { status: 404 })
     }
 
     const amount = Number(product.launch_price_krw ?? product.list_price_krw)
     if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error("?�효?��? ?��? ?�품 금액?�니??")
+      throw new Error("유효하지 않은 상품 금액입니다.")
     }
 
     const { data: payment, error: insertError } = await service
@@ -128,10 +128,10 @@ export async function POST(req: Request) {
       })
       .eq("id", payment.id)
 
-    const message = typeof payappResponse.message === "string" ? payappResponse.message : "결제 ?�청???�패?�습?�다."
+    const message = typeof payappResponse.message === "string" ? payappResponse.message : "결제 요청이 실패했습니다."
     return NextResponse.json({ error: message }, { status: 400 })
   } catch (err: any) {
     console.error("[POST /api/payments/start] error", err?.message || err)
-    return NextResponse.json({ error: err?.message ?? "?�버 ?�류" }, { status: 500 })
+    return NextResponse.json({ error: err?.message ?? "서버 오류" }, { status: 500 })
   }
 }

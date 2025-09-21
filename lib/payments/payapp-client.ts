@@ -1,7 +1,7 @@
-// 경로: lib/payments/payapp-client.ts
-// ??��: PayApp REST API ?�출 �??�경 변??검�??�틸 ?�공
-// ?�존관�? node fetch
-// ?�함 ?�수: getPayAppConfig(), requestPayApp(), verifyLinkval()
+﻿// 경로: lib/payments/payapp-client.ts
+// 역할: PayApp REST API 호출 및 환경변수 검증 유틸 제공
+// 의존관계: node fetch
+// 포함 함수: getPayAppConfig(), requestPayApp(), verifyLinkval()
 
 type PayAppConfig = {
   apiBase: string
@@ -23,7 +23,7 @@ type PayAppResponse = {
 function ensureEnv(name: string): string {
   const value = process.env[name]
   if (!value) {
-    throw new Error(`${name} ?�경 변?��? ?�정?�어 ?��? ?�습?�다.`)
+    throw new Error(`${name} 환경 변수가 설정되어 있지 않습니다.`)
   }
   return value
 }
@@ -56,7 +56,7 @@ export async function requestPayApp(params: Record<string, string>) {
   })
 
   if (!response.ok) {
-    throw new Error(`PayApp API ?�출 ?�패 (status: ${response.status})`)
+    throw new Error(`PayApp API 호출 실패 (status: ${response.status})`)
   }
 
   const text = await response.text()
