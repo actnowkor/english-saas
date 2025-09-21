@@ -1,11 +1,5 @@
 ﻿// hooks/use-auth.tsx
-// 紐⑹쟻: ?대씪?댁뼵???몄쬆 而⑦뀓?ㅽ듃. ?⑤낫???щ?瑜?"DB(users.current_level)" 湲곗??쇰줈 ?먯젙.
-// 蹂寃??붿빟:
-//  - (以묒슂) 濡쒖뺄?ㅽ넗由ъ? hasCompletedOnboarding ?섏〈 ?쒓굅 ??DB??current_level 湲곕컲 isFirstTime 怨꾩궛
-//  - (以묒슂) updateUser媛 current_level 媛깆떊??諛섏쁺(?쒖떆???곹깭?먮쭔; ?ㅼ젣 DB 媛깆떊? API媛 ?대떦)
-//  - Supabase ?몄뀡 蹂???? ??긽 users ?뚯씠釉붿뿉???꾨줈??id, current_level, onboarding_at) 議고쉶
-//
-// 諛곌꼍: 湲곗〈 ?뚯씪? 濡쒖뺄?ㅽ넗由ъ? ?뚮옒洹몃줈 isFirstTime??怨꾩궛?덉뒿?덈떎. ?댁젣 DB ?⑥씪 湲곗??쇰줈 ?듭씪?⑸땲?? :contentReference[oaicite:1]{index=1}
+// 역할: Supabase 인증 정보를 클라이언트 컨텍스트로 제공한다.
 
 "use client"
 
@@ -19,39 +13,36 @@ import {
 } from "react"
 import { supabase } from "@/lib/supabase/browser-client"
 
-// ?깆뿉???ъ슜?섎뒗 ?ъ슜??????쒖떆 ?꾩슜)
-interface User {
+type UserRole = "user" | "admin"
+
+type User = {
   id: string
   email: string
   name: string
-  role: "user" | "admin"
+  role: UserRole
   image?: string
-
-  // ?⑤낫???덈꺼 愿???쒖떆 ?꾩슜)
-  current_level: number | null          // DB users.current_level (1~9 | null)
-  onboarding_at: string | null          // DB users.onboarding_at (ISO | null)
-  isFirstTime: boolean                  // current_level === null ?몄? ?щ?
+  current_level: number | null
+  onboarding_at: string | null
+  isFirstTime: boolean
 }
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null
   loading: boolean
-  signIn: (email?: string) => Promise<void>
+  signIn: () => Promise<void>
   signOut: () => Promise<void>
-  updateUser: (updates: Partial<User>) => void // ?쒖떆 ?꾩슜 ?곹깭 merge
+  updateUser: (updates: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-/** Supabase auth.user + users ?꾨줈?꾩쓣 ?⑹퀜??App User濡?蹂??*/
 function buildAppUser(params: {
   supaUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>
   profile: { id: string; display_name?: string | null; current_level: number | null; onboarding_at: string | null } | null
 }): User {
   const { supaUser, profile } = params
-
-  // ?대쫫 ?꾨낫(硫뷀??곗씠?????대찓???꾩씠??
   const meta = (supaUser.user_metadata ?? {}) as Record<string, unknown>
+
   const fullName =
     (meta["full_name"] as string) ||
     (meta["name"] as string) ||
@@ -78,11 +69,10 @@ function buildAppUser(params: {
     image: avatar,
     current_level,
     onboarding_at,
-    // ???⑤낫???щ???DB 湲곗??쇰줈留?    isFirstTime: current_level === null,
+    isFirstTime: current_level === null,
   }
 }
 
-/** ?꾩옱 濡쒓렇???ъ슜?먯쓽 users ?꾨줈?꾩쓣 ?쎈뒗???놁쑝硫?null) */
 async function fetchOwnProfile() {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
@@ -90,28 +80,28 @@ async function fetchOwnProfile() {
 
   const { data, error } = await supabase
     .from("users")
-    .select("id, display_name")
+    .select("id, display_name, current_level, onboarding_at")
     .eq("id", uid)
     .limit(1)
     .maybeSingle()
 
-  if (error) {
-    // RLS/?ㅽ듃?뚰겕 ?ㅻ쪟 ?깆? ?곸쐞?먯꽌 泥섎━
+  if (error || !data) {
     return null
   }
+
   return {
-    id: (data as any).id,
-    display_name: (data as any).display_name ?? null,
-    current_level: null,
-    onboarding_at: null,
-  } as any
+    id: data.id,
+    display_name: data.display_name ?? null,
+    current_level: (data as any).current_level ?? null,
+    onboarding_at: (data as any).onboarding_at ?? null,
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 최초 로드 + 세션 변화를 처리
+  // 초기 부트스트랩 + 세션 변화 감지
   useEffect(() => {
     const bootstrap = async () => {
       setLoading(true)
@@ -146,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Google OAuth 濡쒓렇??  const signIn = async (_email = "") => {
+  const signIn = async () => {
     setLoading(true)
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : ""
@@ -161,7 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // 濡쒓렇?꾩썐
   const signOut = async () => {
     setLoading(true)
     try {
@@ -172,15 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ?쒖떆 ?꾩슜 ?곹깭 蹂묓빀(?ㅼ젣 DB 蹂寃쎌? ?쒕쾭 API媛 ?섑뻾)
   const updateUser = (updates: Partial<User>) => {
     if (!user) return
     const merged = { ...user, ...updates }
-
-    // current_level 媛믪씠 ?ㅼ뼱?ㅻ㈃ isFirstTime???숆린??    if ("current_level" in updates) {
+    if ("current_level" in updates) {
       merged.isFirstTime = (updates.current_level ?? null) === null
     }
-
     setUser(merged)
   }
 
@@ -203,8 +189,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider")
   return ctx
 }
-
-
-
-
-
