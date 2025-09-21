@@ -1,5 +1,5 @@
 ﻿// 경로: components/dashboard/start-learning-card.tsx
-// 역할: 학습 시작 카드와 이용 제한 안내를 담당
+// 역할: 학습 시작 카드에서 이용권/무료 이용 가능 여부를 안내한다.
 // 의존관계: components/dashboard/session-type-modal.tsx, app/api/learn/check, app/api/sessions
 // 포함 함수: StartLearningCard()
 
@@ -37,20 +37,20 @@ function formatBadgeDate(value: string | null | undefined) {
   const day = String(date.getDate()).padStart(2, "0")
   return `${year}.${month}.${day}`
 }
-// formatBadgeDate: 배지를 위한 만료일 문자열을 YYYY.MM.DD 형태로 변환한다.
+// formatBadgeDate: 이용권 만료일 등의 날짜를 YYYY.MM.DD 형식으로 변환한다.
 
 function buildAccessBadge(access?: AccessSummary | null): AccessBadge | null {
   if (!access) return null
   if (access.status === "pro") {
     const until = formatBadgeDate(access.pro_until)
-    return { label: `무제한 이용권 ~${until}`, variant: "default" }
+    return { label: `정기권 이용권 ~${until}`, variant: "default" }
   }
   const limit = Math.max(1, Number(access.free_sessions_limit ?? 1))
   const left = Math.max(0, Number(access.free_sessions_left ?? 0))
   const label = `무료 ${left}/${limit}`
   return { label, variant: left > 0 ? "secondary" : "destructive" }
 }
-// buildAccessBadge: 이용권 상태에 맞춰 표시할 배지 텍스트와 색상을 계산한다.
+// buildAccessBadge: 이용권 상태에 맞는 배지를 계산한다.
 
 const toDbType = (t: SessionType) => (t === "standard" ? "mix" : t === "weakness" ? "weak_focus" : t)
 
@@ -74,16 +74,18 @@ export function StartLearningCard({
   const [activeSid, setActiveSid] = useState<string | null>(null)
 
   const accessBadge = useMemo(() => buildAccessBadge(accessSummary), [accessSummary])
+  const freeSessionsLeft = Math.max(0, Number(accessSummary?.free_sessions_left ?? 0))
   const showExpiredNotice = accessSummary?.status === "expired"
+  const expiredBlocksStart = showExpiredNotice && freeSessionsLeft <= 0
   const showQuotaNotice =
-    !showExpiredNotice && accessSummary && accessSummary.status !== "pro" && accessSummary.free_sessions_left === 0
-  const blockedForPayment = showExpiredNotice || showQuotaNotice
+    !showExpiredNotice && accessSummary && accessSummary.status !== "pro" && freeSessionsLeft === 0
+  const blockedForPayment = expiredBlocksStart || showQuotaNotice
   const primaryButtonLabel = blockedForPayment
     ? "이용권 구매하기"
     : loading
     ? "준비 중..."
     : activeSid && preferResumeLabel
-    ? "이어서 학습"
+    ? "이어 학습"
     : "학습 시작"
 
   useEffect(() => {
@@ -117,15 +119,15 @@ export function StartLearningCard({
         .json()
         .catch(() => ({ can_start: false, reason: "UNKNOWN" }))
       if (!guardRes.ok || guardJson?.reason === "UNKNOWN") {
-        throw new Error(`학습 가능 여부 확인 실패 (status ${guardRes.status})`)
+        throw new Error(`학습 가능 조건 확인 실패 (status ${guardRes.status})`)
       }
 
       if (!guardJson.can_start) {
         if (guardJson.reason === "NO_FREE_LEFT") {
-          setGuardMessage("무료 학습 횟수를 모두 사용했습니다. 설정 페이지에서 이용권을 구매해 주세요.")
+          setGuardMessage("오늘의 무료 학습 기회를 모두 사용했습니다. 이용권을 활성화하면 즉시 학습할 수 있어요.")
           router.push("/settings?from=dashboard")
         } else {
-          setGuardMessage("현재 학습을 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.")
+          setGuardMessage("현재는 학습을 시작할 수 없습니다. 잠시 뒤 다시 시도해 주세요.")
         }
         setOpen(false)
         return
@@ -143,7 +145,7 @@ export function StartLearningCard({
       router.push(`/learn?sid=${encodeURIComponent(json.session_id)}`)
     } catch (error) {
       console.error(error)
-      alert("세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+      alert("학습을 시작하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
     } finally {
       setLoading(false)
       setOpen(false)
@@ -166,18 +168,22 @@ export function StartLearningCard({
         </div>
         <CardDescription>
           학습을 위한 기본 조건이 모두 준비되었습니다.
-          {disabledWeakSession ? " (취약 세션은 아직 비활성 상태입니다)" : ""}
+          {disabledWeakSession ? " (약점 세션은 현재 비활성화됨)" : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {showExpiredNotice ? (
-          <Alert variant="destructive">
-            <AlertDescription>이용권이 만료되었습니다. 설정 화면에서 이용권을 다시 활성화해 주세요.</AlertDescription>
+          <Alert variant={expiredBlocksStart ? "destructive" : "default"}>
+            <AlertDescription>
+              {expiredBlocksStart
+                ? "이용권이 만료되었습니다. 설정 화면에서 이용권을 다시 활성화해 주세요."
+                : "이용권은 만료되었지만 하루 1회 무료 학습은 계속 이용할 수 있습니다."}
+            </AlertDescription>
           </Alert>
         ) : null}
         {!showExpiredNotice && showQuotaNotice ? (
           <Alert variant="destructive">
-            <AlertDescription>오늘 무료 학습 횟수를 모두 사용했습니다. 이용권을 구매하면 바로 학습을 이어갈 수 있어요.</AlertDescription>
+            <AlertDescription>오늘의 무료 학습 기회를 모두 사용했습니다. 이용권을 결제하면 즉시 학습을 계속할 수 있어요.</AlertDescription>
           </Alert>
         ) : null}
         {guardMessage && (
@@ -190,8 +196,8 @@ export function StartLearningCard({
           <Alert variant={difficultyNotice.applied ? "destructive" : "default"}>
             <AlertDescription>
               {difficultyNotice.applied
-                ? `난이도 조정 적용: ${difficultyNotice.reason || "최근 학습 결과에 따라 난이도가 조정되었습니다."}`
-                : `난이도 유지: ${difficultyNotice.reason || "기본 난이도로 진행합니다."}`}
+                ? `난이도 조정 적용: ${difficultyNotice.reason || "최근 학습 결과를 바탕으로 난이도가 조정되었습니다."}`
+                : `난이도 안내: ${difficultyNotice.reason || "현재 기본 난이도로 진행됩니다."}`}
             </AlertDescription>
           </Alert>
         )}
@@ -228,5 +234,5 @@ export function StartLearningCard({
     </Card>
   )
 }
-// StartLearningCard: 대시보드에서 학습 시작 버튼과 이용권 안내를 제공한다.
-// 사용처: app/dashboard/page.tsx의 학습 카드 구성에 사용된다.
+// StartLearningCard: 학습 시작 버튼과 이용권/무료 이용 상태 안내를 담당한다.
+// 사용처: app/dashboard/page.tsx에서 학습 카드로 노출된다.
