@@ -111,14 +111,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 理쒖큹 濡쒕뱶 + ?몄뀡 蹂?????꾨줈???숆린??  useEffect(() => {
-
+  // 최초 로드 + 세션 변화를 처리
+  useEffect(() => {
     const bootstrap = async () => {
       setLoading(true)
       try {
         const { data, error } = await supabase.auth.getUser()
         if (error || !data?.user) {
-          setUser(null)          return
+          setUser(null)
+          return
         }
         const profile = await fetchOwnProfile()
         const appUser = buildAppUser({ supaUser: data.user, profile })
@@ -128,9 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 遺?몄뒪?몃옪 1??    void bootstrap()
+    void bootstrap()
 
-    // ?몄뀡 援щ룆 ??蹂寃??쒕쭏???꾨줈???ъ“??    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         setUser(null)
         return
@@ -202,6 +203,8 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider")
   return ctx
 }
+
+
 
 
 
