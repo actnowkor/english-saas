@@ -1,11 +1,11 @@
-// 경로: components/dashboard/session-type-modal.tsx
-// 역할: 학습 세션 종류 선택 모달
-// 의존관계: lib/i18n, hooks/use-dashboard.ts
+﻿// 경로: components/dashboard/session-type-modal.tsx
+// 역할: 학습 시작 전 세션 타입을 선택하고 제한 조건을 안내한다.
+// 의존관계: lib/i18n
 // 포함 함수: SessionTypeModal()
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ type SessionTypeModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onStartSession: (type: SessionType) => void
+  totalSentenceCount: number
   preselectedType?: SessionType
   difficultyNotice?: { applied: boolean; reason: string } | undefined
 }
@@ -28,28 +29,13 @@ export function SessionTypeModal({
   open,
   onOpenChange,
   onStartSession,
+  totalSentenceCount,
   preselectedType,
   difficultyNotice,
 }: SessionTypeModalProps) {
   const { t } = useTranslation()
-  const [eligible, setEligible] = useState<boolean>(true)
   const [selectedType, setSelectedType] = useState<SessionType>(preselectedType || "new_only")
-
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const res = await fetch("/api/dashboard", { cache: "no-store" })
-        if (!res.ok) return
-        const json = await res.json()
-        const total = Number(json?.totalSentenceCount ?? 0)
-        if (mounted) setEligible(total >= 300)
-      } catch {}
-    })()
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const eligible = (totalSentenceCount ?? 0) >= 300
 
   const handleStart = () => {
     onStartSession(selectedType)
@@ -61,7 +47,7 @@ export function SessionTypeModal({
       <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg space-y-3">
         <DialogHeader>
           <DialogTitle>{t("sessionType.title")}</DialogTitle>
-          <DialogDescription>학습 목적에 맞는 세션을 선택해 주세요.</DialogDescription>
+          <DialogDescription>학습 방식에 맞는 옵션을 골라 주세요.</DialogDescription>
         </DialogHeader>
 
         {!eligible && (
@@ -74,8 +60,8 @@ export function SessionTypeModal({
           <Alert variant={difficultyNotice.applied ? "destructive" : "default"}>
             <AlertDescription>
               {difficultyNotice.applied
-                ? `이번 세션은 ${difficultyNotice.reason || "정답률 저하"} 기준으로 난이도가 조정됩니다.`
-                : `난이도 조정 없음: ${difficultyNotice.reason || "안정적으로 유지 중"}`}
+                ? `이미 세션에 ${difficultyNotice.reason || "난이도 조정"}이 적용되었습니다.`
+                : `난이도 참고: ${difficultyNotice.reason || "추가 조정 없음"}`}
             </AlertDescription>
           </Alert>
         )}
@@ -126,6 +112,5 @@ export function SessionTypeModal({
     </Dialog>
   )
 }
-// SessionTypeModal: 학습 시작 전에 세션 타입과 조정 안내를 선택한다.
-
-// 사용법: StartLearningCard에서 모달 상태와 시작 핸들러를 주입한다.
+// SessionTypeModal: 학습 시작 시 세션 타입 선택과 제한 안내 UI를 제공한다.
+// 사용법: StartLearningCard에서 학습 가능한 총 풀이 수와 함께 호출한다.

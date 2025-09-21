@@ -59,11 +59,13 @@ export function StartLearningCard({
   preferResumeLabel,
   difficultyNotice,
   accessSummary = null,
+  totalSentenceCount = 0,
 }: {
   disabledWeakSession?: boolean
   preferResumeLabel?: boolean
   difficultyNotice?: { applied: boolean; reason: string }
   accessSummary?: AccessSummary | null
+  totalSentenceCount?: number
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -220,6 +222,7 @@ export function StartLearningCard({
           onStartSession={handleStart}
           preselectedType="new_only"
           difficultyNotice={difficultyNotice}
+          totalSentenceCount={totalSentenceCount}
         />
       ) : null}
     </Card>

@@ -257,6 +257,7 @@ export default function LearnPage() {
               <StartLearningCard
                 preferResumeLabel
                 accessSummary={accessSummary}
+                totalSentenceCount={0}
                 difficultyNotice={adjustment ? { applied: adjustment.applied, reason: adjustment.reason } : undefined}
               />
             </div>
@@ -353,7 +354,3 @@ export default function LearnPage() {
 // LearnPage: 학습 세션을 진행하고 완료 시 결과 페이지로 이동한다.
 
 // 사용법: /learn 경로에서 sid 쿼리 파라미터와 함께 접근한다.
-
-
-
-

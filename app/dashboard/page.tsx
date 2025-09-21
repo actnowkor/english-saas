@@ -181,6 +181,7 @@ export default function DashboardPage() {
               disabledWeakSession={!gates.weakSessionEnabled}
               difficultyNotice={difficulty ? { applied: difficulty.applied, reason: difficulty.reason } : undefined}
               accessSummary={access}
+              totalSentenceCount={totalSentenceCount}
             />
           </div>
 
@@ -277,5 +278,3 @@ export default function DashboardPage() {
     </ProtectedRoute>
   )
 }
-
-
