@@ -1,5 +1,5 @@
 ﻿// hooks/use-auth.tsx
-// 역할: Supabase 인증 정보를 클라이언트 컨텍스트로 제공한다.
+// 역할: Supabase 인증 정보를 클라이언트 전역 상태로 제공한다.
 
 "use client"
 
@@ -26,6 +26,13 @@ type User = {
   isFirstTime: boolean
 }
 
+type ProfileRow = {
+  id: string
+  display_name?: string | null
+  current_level?: number | null
+  onboarding_at?: string | null
+}
+
 type AuthContextType = {
   user: User | null
   loading: boolean
@@ -38,7 +45,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 function buildAppUser(params: {
   supaUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>
-  profile: { id: string; display_name?: string | null; current_level: number | null; onboarding_at: string | null } | null
+  profile: ProfileRow | null
 }): User {
   const { supaUser, profile } = params
   const meta = (supaUser.user_metadata ?? {}) as Record<string, unknown>
@@ -58,8 +65,8 @@ function buildAppUser(params: {
     undefined
 
   const preferredName = (profile?.display_name && String(profile.display_name).trim()) || fullName
-  const current_level = profile?.current_level ?? null
-  const onboarding_at = profile?.onboarding_at ?? null
+  const currentLevel = profile?.current_level ?? null
+  const onboardingAt = profile?.onboarding_at ?? null
 
   return {
     id: supaUser.id,
@@ -67,13 +74,13 @@ function buildAppUser(params: {
     name: preferredName,
     role: "user",
     image: avatar,
-    current_level,
-    onboarding_at,
-    isFirstTime: current_level === null,
+    current_level: currentLevel,
+    onboarding_at: onboardingAt,
+    isFirstTime: currentLevel === null,
   }
 }
 
-async function fetchOwnProfile() {
+async function fetchOwnProfile(): Promise<ProfileRow | null> {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
   if (!uid) return null
@@ -85,34 +92,33 @@ async function fetchOwnProfile() {
     .limit(1)
     .maybeSingle()
 
-  if (error || !data) {
-    return null
+  if (error) {
+    console.warn("[useAuth] failed to fetch profile", error.message)
+    return { id: uid, display_name: null, current_level: null, onboarding_at: null }
   }
 
-  return {
-    id: data.id,
-    display_name: data.display_name ?? null,
-    current_level: (data as any).current_level ?? null,
-    onboarding_at: (data as any).onboarding_at ?? null,
+  if (!data) {
+    return { id: uid, display_name: null, current_level: null, onboarding_at: null }
   }
+
+  return data as ProfileRow
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 초기 부트스트랩 + 세션 변화 감지
   useEffect(() => {
     const bootstrap = async () => {
       setLoading(true)
       try {
-        const { data, error } = await supabase.auth.getUser()
-        if (error || !data?.user) {
+        const { data, error } = await supabase.auth.getSession()
+        if (error || !data?.session?.user) {
           setUser(null)
           return
         }
         const profile = await fetchOwnProfile()
-        const appUser = buildAppUser({ supaUser: data.user, profile })
+        const appUser = buildAppUser({ supaUser: data.session.user, profile })
         setUser(appUser)
       } finally {
         setLoading(false)
