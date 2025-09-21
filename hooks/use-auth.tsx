@@ -1,5 +1,7 @@
-﻿// hooks/use-auth.tsx
-// 역할: Supabase 인증 정보를 클라이언트 전역 상태로 제공한다.
+﻿// 경로: hooks/use-auth.tsx
+// 역할: 클라이언트 전역 인증 상태를 관리하고 Supabase 세션을 동기화한다.
+// 의존관계: @/lib/supabase/browser-client, @/lib/auth/app-user
+// 포함 함수: AuthProvider(), useAuth()
 
 "use client"
 
@@ -12,73 +14,17 @@ import {
   type ReactNode,
 } from "react"
 import { supabase } from "@/lib/supabase/browser-client"
-
-type UserRole = "user" | "admin"
-
-type User = {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-  image?: string
-  current_level: number | null
-  onboarding_at: string | null
-  isFirstTime: boolean
-}
-
-type ProfileRow = {
-  id: string
-  display_name?: string | null
-  current_level?: number | null
-  onboarding_at?: string | null
-}
+import { buildAppUser, type AppUser, type ProfileRow } from "@/lib/auth/app-user"
 
 type AuthContextType = {
-  user: User | null
+  user: AppUser | null
   loading: boolean
   signIn: () => Promise<void>
   signOut: () => Promise<void>
-  updateUser: (updates: Partial<User>) => void
+  updateUser: (updates: Partial<AppUser>) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-function buildAppUser(params: {
-  supaUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>
-  profile: ProfileRow | null
-}): User {
-  const { supaUser, profile } = params
-  const meta = (supaUser.user_metadata ?? {}) as Record<string, unknown>
-
-  const fullName =
-    (meta["full_name"] as string) ||
-    (meta["name"] as string) ||
-    (meta["given_name"] as string) ||
-    (meta["preferred_username"] as string) ||
-    (supaUser.email?.split("@")[0] ?? "User")
-
-  const avatar =
-    (meta["avatar_url"] as string) ||
-    (meta["picture"] as string) ||
-    (meta["avatar"] as string) ||
-    (meta["profile_image"] as string) ||
-    undefined
-
-  const preferredName = (profile?.display_name && String(profile.display_name).trim()) || fullName
-  const currentLevel = profile?.current_level ?? null
-  const onboardingAt = profile?.onboarding_at ?? null
-
-  return {
-    id: supaUser.id,
-    email: supaUser.email ?? "",
-    name: preferredName,
-    role: "user",
-    image: avatar,
-    current_level: currentLevel,
-    onboarding_at: onboardingAt,
-    isFirstTime: currentLevel === null,
-  }
-}
 
 async function fetchOwnProfile(): Promise<ProfileRow | null> {
   const { data: auth } = await supabase.auth.getUser()
@@ -103,44 +49,65 @@ async function fetchOwnProfile(): Promise<ProfileRow | null> {
 
   return data as ProfileRow
 }
+// fetchOwnProfile: 현재 로그인 사용자의 프로필 정보를 가져온다.
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+export function AuthProvider({
+  children,
+  initialUser = null,
+}: {
+  children: ReactNode
+  initialUser?: AppUser | null
+}) {
+  const [user, setUser] = useState<AppUser | null>(initialUser)
+  const [loading, setLoading] = useState<boolean>(initialUser ? false : true)
+  const hasInitialUser = initialUser !== null
 
   useEffect(() => {
+    let mounted = true
+
     const bootstrap = async () => {
+      if (hasInitialUser) {
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
       try {
         const { data, error } = await supabase.auth.getSession()
+        if (!mounted) return
         if (error || !data?.session?.user) {
           setUser(null)
           return
         }
         const profile = await fetchOwnProfile()
         const appUser = buildAppUser({ supaUser: data.session.user, profile })
+        if (!mounted) return
         setUser(appUser)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     void bootstrap()
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
       if (!session?.user) {
         setUser(null)
+        setLoading(false)
         return
       }
       const profile = await fetchOwnProfile()
       const appUser = buildAppUser({ supaUser: session.user, profile })
       setUser(appUser)
+      setLoading(false)
     })
 
     return () => {
+      mounted = false
       sub?.subscription?.unsubscribe?.()
     }
-  }, [])
+  }, [hasInitialUser])
 
   const signIn = async () => {
     setLoading(true)
@@ -167,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateUser = (updates: Partial<AppUser>) => {
     if (!user) return
     const merged = { ...user, ...updates }
     if ("current_level" in updates) {
@@ -189,9 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+// AuthProvider: 초기 사용자 상태를 포함해 전역 인증 컨텍스트를 제공한다.
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider")
   return ctx
 }
+// useAuth: 인증 컨텍스트를 손쉽게 접근하기 위한 훅이다.
+

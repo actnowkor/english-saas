@@ -230,7 +230,7 @@ export async function GET() {
         difficulty = {
           applied: adj.applied,
           reason: adj.reason || (adj.applied ? "난이도 조정 적용" : "조정 조건 미충족"),
-          applied_mix: adj.applied_mix,
+          applied_mix: adj.applied_mix ?? null,
         }
       }
     }
@@ -293,6 +293,7 @@ export async function GET() {
 // GET: 대시보드에 필요한 누적 집계/레벨 평가/난이도 정보를 반환한다.
 
 // 사용법: /dashboard 클라이언트가 요약 데이터를 요청한다.
+
 
 
 
