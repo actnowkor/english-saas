@@ -1,11 +1,11 @@
-// hooks/use-auth.tsx
-// 목적: 클라이언트 인증 컨텍스트. 온보딩 여부를 "DB(users.current_level)" 기준으로 판정.
-// 변경 요약:
-//  - (중요) 로컬스토리지 hasCompletedOnboarding 의존 제거 → DB의 current_level 기반 isFirstTime 계산
-//  - (중요) updateUser가 current_level 갱신을 반영(표시용 상태에만; 실제 DB 갱신은 API가 담당)
-//  - Supabase 세션 변화 시, 항상 users 테이블에서 프로필(id, current_level, onboarding_at) 조회
+﻿// hooks/use-auth.tsx
+// 紐⑹쟻: ?대씪?댁뼵???몄쬆 而⑦뀓?ㅽ듃. ?⑤낫???щ?瑜?"DB(users.current_level)" 湲곗??쇰줈 ?먯젙.
+// 蹂寃??붿빟:
+//  - (以묒슂) 濡쒖뺄?ㅽ넗由ъ? hasCompletedOnboarding ?섏〈 ?쒓굅 ??DB??current_level 湲곕컲 isFirstTime 怨꾩궛
+//  - (以묒슂) updateUser媛 current_level 媛깆떊??諛섏쁺(?쒖떆???곹깭?먮쭔; ?ㅼ젣 DB 媛깆떊? API媛 ?대떦)
+//  - Supabase ?몄뀡 蹂???? ??긽 users ?뚯씠釉붿뿉???꾨줈??id, current_level, onboarding_at) 議고쉶
 //
-// 배경: 기존 파일은 로컬스토리지 플래그로 isFirstTime을 계산했습니다. 이제 DB 단일 기준으로 통일합니다. :contentReference[oaicite:1]{index=1}
+// 諛곌꼍: 湲곗〈 ?뚯씪? 濡쒖뺄?ㅽ넗由ъ? ?뚮옒洹몃줈 isFirstTime??怨꾩궛?덉뒿?덈떎. ?댁젣 DB ?⑥씪 湲곗??쇰줈 ?듭씪?⑸땲?? :contentReference[oaicite:1]{index=1}
 
 "use client"
 
@@ -19,7 +19,7 @@ import {
 } from "react"
 import { supabase } from "@/lib/supabase/browser-client"
 
-// 앱에서 사용하는 사용자 타입(표시 전용)
+// ?깆뿉???ъ슜?섎뒗 ?ъ슜??????쒖떆 ?꾩슜)
 interface User {
   id: string
   email: string
@@ -27,10 +27,10 @@ interface User {
   role: "user" | "admin"
   image?: string
 
-  // 온보딩/레벨 관련(표시 전용)
+  // ?⑤낫???덈꺼 愿???쒖떆 ?꾩슜)
   current_level: number | null          // DB users.current_level (1~9 | null)
   onboarding_at: string | null          // DB users.onboarding_at (ISO | null)
-  isFirstTime: boolean                  // current_level === null 인지 여부
+  isFirstTime: boolean                  // current_level === null ?몄? ?щ?
 }
 
 interface AuthContextType {
@@ -38,19 +38,19 @@ interface AuthContextType {
   loading: boolean
   signIn: (email?: string) => Promise<void>
   signOut: () => Promise<void>
-  updateUser: (updates: Partial<User>) => void // 표시 전용 상태 merge
+  updateUser: (updates: Partial<User>) => void // ?쒖떆 ?꾩슜 ?곹깭 merge
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-/** Supabase auth.user + users 프로필을 합쳐서 App User로 변환 */
+/** Supabase auth.user + users ?꾨줈?꾩쓣 ?⑹퀜??App User濡?蹂??*/
 function buildAppUser(params: {
   supaUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>
   profile: { id: string; display_name?: string | null; current_level: number | null; onboarding_at: string | null } | null
 }): User {
   const { supaUser, profile } = params
 
-  // 이름 후보(메타데이터 → 이메일 아이디)
+  // ?대쫫 ?꾨낫(硫뷀??곗씠?????대찓???꾩씠??
   const meta = (supaUser.user_metadata ?? {}) as Record<string, unknown>
   const fullName =
     (meta["full_name"] as string) ||
@@ -78,12 +78,11 @@ function buildAppUser(params: {
     image: avatar,
     current_level,
     onboarding_at,
-    // ✅ 온보딩 여부는 DB 기준으로만
-    isFirstTime: current_level === null,
+    // ???⑤낫???щ???DB 湲곗??쇰줈留?    isFirstTime: current_level === null,
   }
 }
 
-/** 현재 로그인 사용자의 users 프로필을 읽는다(없으면 null) */
+/** ?꾩옱 濡쒓렇???ъ슜?먯쓽 users ?꾨줈?꾩쓣 ?쎈뒗???놁쑝硫?null) */
 async function fetchOwnProfile() {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
@@ -97,7 +96,7 @@ async function fetchOwnProfile() {
     .maybeSingle()
 
   if (error) {
-    // RLS/네트워크 오류 등은 상위에서 처리
+    // RLS/?ㅽ듃?뚰겕 ?ㅻ쪟 ?깆? ?곸쐞?먯꽌 泥섎━
     return null
   }
   return {
@@ -112,42 +111,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 최초 로드 + 세션 변화 시 프로필 동기화
-  useEffect(() => {
+  // 理쒖큹 濡쒕뱶 + ?몄뀡 蹂?????꾨줈???숆린??  useEffect(() => {
 
     const bootstrap = async () => {
       setLoading(true)
       try {
         const { data, error } = await supabase.auth.getUser()
         if (error || !data?.user) {
-          setUser(null)
-          localStorage.removeItem("user")
-          return
+          setUser(null)          return
         }
         const profile = await fetchOwnProfile()
         const appUser = buildAppUser({ supaUser: data.user, profile })
         setUser(appUser)
-        // 표시면 캐시(레이아웃 스켈레톤 최소화용)
-        localStorage.setItem("user", JSON.stringify(appUser))
       } finally {
         setLoading(false)
       }
     }
 
-    // 부트스트랩 1회
-    void bootstrap()
+    // 遺?몄뒪?몃옪 1??    void bootstrap()
 
-    // 세션 구독 → 변경 시마다 프로필 재조회
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // ?몄뀡 援щ룆 ??蹂寃??쒕쭏???꾨줈???ъ“??    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         setUser(null)
-        localStorage.removeItem("user")
         return
       }
       const profile = await fetchOwnProfile()
       const appUser = buildAppUser({ supaUser: session.user, profile })
       setUser(appUser)
-      localStorage.setItem("user", JSON.stringify(appUser))
     })
 
     return () => {
@@ -155,8 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Google OAuth 로그인
-  const signIn = async (_email = "") => {
+  // Google OAuth 濡쒓렇??  const signIn = async (_email = "") => {
     setLoading(true)
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : ""
@@ -171,30 +160,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // 로그아웃
+  // 濡쒓렇?꾩썐
   const signOut = async () => {
     setLoading(true)
     try {
       await supabase.auth.signOut().catch(() => {})
     } finally {
       setUser(null)
-      localStorage.removeItem("user")
       setLoading(false)
     }
   }
 
-  // 표시 전용 상태 병합(실제 DB 변경은 서버 API가 수행)
+  // ?쒖떆 ?꾩슜 ?곹깭 蹂묓빀(?ㅼ젣 DB 蹂寃쎌? ?쒕쾭 API媛 ?섑뻾)
   const updateUser = (updates: Partial<User>) => {
     if (!user) return
     const merged = { ...user, ...updates }
 
-    // current_level 값이 들어오면 isFirstTime도 동기화
-    if ("current_level" in updates) {
+    // current_level 媛믪씠 ?ㅼ뼱?ㅻ㈃ isFirstTime???숆린??    if ("current_level" in updates) {
       merged.isFirstTime = (updates.current_level ?? null) === null
     }
 
     setUser(merged)
-    localStorage.setItem("user", JSON.stringify(merged))
   }
 
   const value = useMemo<AuthContextType>(
@@ -216,3 +202,6 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider")
   return ctx
 }
+
+
+
