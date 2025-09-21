@@ -15,6 +15,7 @@
 
 ## Documentation & Structure
 - Each function must be followed by a short Korean comment explaining its role.
+- 코드에 적힌 한글 주석이 깨지지 않도록 한다.
 - For exported functions/components: include usage notes (Korean).
 - Organize code into logical sections: imports, constants, main logic, exports.
 
