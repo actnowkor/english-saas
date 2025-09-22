@@ -6,7 +6,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { SupabaseServiceClient } from "@/lib/supabase/service-client"
 
-const DAILY_FREE_LIMIT = 1
+
+const DAILY_FREE_LIMIT = 10
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
 
 type GuardPayload = {
@@ -66,7 +67,8 @@ export async function loadAccessSummary(
       status = "pro"
     }
 
-    const payment = entitlement.payments
+    const rawPayments = entitlement.payments as Array<{ status?: string; paid_at?: string }> | null
+    const payment = Array.isArray(rawPayments) ? rawPayments[0] : rawPayments
     if (status === "pro" && payment?.status === "paid" && payment?.paid_at) {
       const paidAt = new Date(payment.paid_at)
       const diff = Date.now() - paidAt.getTime()

@@ -1,5 +1,5 @@
-// 경로: app/api/sessions/[id]/complete/route.ts
-// 역할: 세션 종료 처리(종료 시간 갱신, SRS 갱신, 자동 레벨 평가)
+﻿// 경로: app/api/sessions/[id]/complete/route.ts
+// 역할: 학습 세션 종료 처리 후 번들 생성 및 레벨 자동 평가
 // 의존관계: lib/supabase/server-client.ts, lib/logic/level-utils.ts
 // 포함 함수: POST()
 
@@ -21,14 +21,16 @@ export async function POST(
       return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 })
     }
 
-    const { data: sessionRow } = await supabase
+    const { data: sessionRow, error: sessionError } = await supabase
       .from("sessions")
-      .select("id")
+      .select("id, user_id")
       .eq("id", sessionId)
-      .eq("user_id", auth.user.id)
       .single()
-    if (!sessionRow) {
-      return NextResponse.json({ error: "세션 권한이 없습니다." }, { status: 403 })
+    if (sessionError || !sessionRow) {
+      return NextResponse.json({ error: "세션을 찾을 수 없습니다." }, { status: 404 })
+    }
+    if (sessionRow.user_id !== auth.user.id) {
+      return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 })
     }
 
     const { error: srsError } = await supabase.rpc("update_srs", { p_session_id: sessionId })
@@ -42,6 +44,16 @@ export async function POST(
       console.error("complete_session error", completeError)
       return NextResponse.json({ error: "세션 종료에 실패했습니다." }, { status: 500 })
     }
+
+    const { data: bundleResult, error: bundleError } = await supabase.rpc("archive_session_into_bundle", {
+      p_session_id: sessionId,
+    })
+    if (bundleError) {
+      console.error("archive_session_into_bundle error", bundleError)
+      return NextResponse.json({ error: "세션 번들 저장에 실패했습니다." }, { status: 500 })
+    }
+
+    const bundleId = typeof bundleResult === "string" ? bundleResult : String(bundleResult ?? "") || null
 
     try {
       await supabase
@@ -61,12 +73,12 @@ export async function POST(
       levelResult = { leveled_up: false, reason: "evaluation_failed" }
     }
 
-    return NextResponse.json({ ok: true, level: levelResult })
+    return NextResponse.json({ ok: true, level: levelResult, bundle_id: bundleId })
   } catch (err: any) {
     console.error("[POST /api/sessions/:id/complete] error", err?.message || err)
     return NextResponse.json({ error: err?.message ?? "서버 오류" }, { status: 500 })
   }
 }
-// POST: 세션 종료 후 자동 승급을 평가한다.
+// POST: SRS 갱신과 세션 종료 후 번들을 생성하고 자동 레벨 평가 결과를 반환한다.
 
-// 사용법: 학습 세션이 끝날 때 클라이언트에서 호출한다.
+// 용도: 학습 세션이 종료될 때 호출한다.

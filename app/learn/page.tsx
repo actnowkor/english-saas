@@ -24,6 +24,8 @@ type SnapshotItem = {
   snapshot: any
   concept_key?: string
   concept_ko?: string
+  type?: string | null
+  level?: string | null
 }
 
 type LoadedSession = {
@@ -125,6 +127,9 @@ export default function LearnPage() {
       setQuestionStartAt(Date.now())
     }
   }, [current?.item_id])
+
+    const correctAnswer = current?.snapshot?.answer_en ?? ""
+    const showAnswerLine = Boolean(correctAnswer) && !((feedback?.text ?? "").includes(correctAnswer))
 
   const completeSession = async () => {
     if (!session) return null
@@ -274,7 +279,12 @@ export default function LearnPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Q{current.order_index}. {current.snapshot?.source_ko}</CardTitle>
-                  <CardDescription>영어로 문장을 완성해 보세요.</CardDescription>
+                  <CardDescription>정답을 입력해 주세요.</CardDescription>
+                  {(current?.level ?? current?.snapshot?.level) ? (
+                    <div className="text-xs text-muted-foreground">
+                      문제 레벨: <span className="font-semibold text-foreground">{current?.level ?? current?.snapshot?.level}</span>
+                    </div>
+                  ) : null}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Input
@@ -308,9 +318,11 @@ export default function LearnPage() {
                               ? "근접 정답"
                               : "오답"}
                             <div className="text-muted-foreground mt-1">{feedback.text}</div>
-                            <div className="mt-1 text-muted-foreground">
-                              정답: <b className="text-foreground">{current.snapshot?.answer_en}</b>
-                            </div>
+                            {showAnswerLine ? (
+                              <div className="mt-1 text-muted-foreground">
+                                정답: <b className="text-foreground">{current.snapshot?.answer_en}</b>
+                              </div>
+                            ) : null}
                             {current.concept_ko && (
                               <div className="text-muted-foreground">
                                 개념: <b className="text-foreground">{current.concept_ko}</b>

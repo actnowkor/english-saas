@@ -1,7 +1,7 @@
 ﻿// 경로: components/layout/header.tsx
-// 역할: 앱 상단 헤더를 렌더링하고 학습/계정 관련 액션을 제공
+// 역할: 상단 내비게이션과 학습/이용권 상태를 보여준다.
 // 의존관계: hooks/use-auth, hooks/use-sidebar, components/ui/*, app/api/entitlements/me
-// 포함 함수: Header()
+// 포함 함수: formatBadgeDate(), resolveAccessBadge(), Header()
 
 "use client"
 
@@ -38,20 +38,35 @@ function formatBadgeDate(value: string | null) {
   const day = String(date.getDate()).padStart(2, "0")
   return `${year}.${month}.${day}`
 }
-// formatBadgeDate: 이용권 만료일을 YYYY.MM.DD 문자열로 정리한다.
+// formatBadgeDate: 이용권 만료일을 YYYY.MM.DD 형식의 문자열로 변환한다.
 
 function resolveAccessBadge(access: AccessSummary | null): AccessBadge | null {
   if (!access) return null
-  if (access.status === "pro") {
-    return { label: `무제한 이용권 ~${formatBadgeDate(access.pro_until)}`, variant: "default" }
+  if (access.reason === "OK_ADMIN") {
+    return { label: "관리자", variant: "default" }
   }
-  const limit = Math.max(1, Number(access.free_sessions_limit ?? 1))
-  const left = Math.max(0, Number(access.free_sessions_left ?? 0))
+  if (access.status === "pro") {
+    return { label: `프리미엄 이용권 ~${formatBadgeDate(access.pro_until)}`, variant: "default" }
+  }
+  // ✅ 서버가 준 값을 최우선으로 사용 (백엔드가 이미 10/10 로직을 보장)
+  const limit = Math.max(1, Number(access.free_sessions_limit ?? 10))
+
+  // 1) 서버 left가 오면 그대로 신뢰
+  const serverLeft = Number.isFinite(Number(access.free_sessions_left))
+    ? Math.max(0, Math.min(limit, Number(access.free_sessions_left)))
+    : null
+
+  // 2) 없으면 used_today로 최소한 보정 (limit - used)
+  const usedToday = Math.max(0, Number(access.free_sessions_used_today ?? 0))
+  const fallbackLeft = Math.max(0, Math.min(limit, limit - usedToday))
+
+  const left = serverLeft !== null ? serverLeft : fallbackLeft
+
   const label = `무료 ${left}/${limit}`
-  const variant: AccessBadge["variant"] = left > 0 ? "secondary" : "destructive"
-  return { label, variant }
+  return { label, variant: left > 0 ? "secondary" : "destructive" }
+
 }
-// resolveAccessBadge: 현재 이용권 상태에 맞는 배지 텍스트와 색상을 계산한다.
+// resolveAccessBadge: 이용 상태에 따라 표시할 배지 문구와 스타일을 결정한다.
 
 export function Header() {
   const { t } = useTranslation()
@@ -184,5 +199,5 @@ export function Header() {
     </header>
   )
 }
-// Header: 대시보드 전역 헤더를 렌더링하고 이용권 배지를 노출한다.
-// 사용처: components/layout/app-layout.tsx에서 공통 레이아웃으로 사용된다.
+// Header: 상단 헤더 UI와 이용권 배지를 렌더링한다.
+// 사용 예: <Header />

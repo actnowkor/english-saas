@@ -21,6 +21,10 @@ type ResultItem = {
   label: string | null
   feedback: string | null
   minimal_rewrite: string | null
+  type?: string | null
+  level?: string | null
+  concept_key?: string | null
+  concept_ko?: string | null
 }
 
 export default function ResultPage() {

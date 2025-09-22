@@ -17,6 +17,7 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { CalendarMonth } from "@/components/dashboard/calendar-month"
 import { StartLearningCard } from "@/components/dashboard/start-learning-card"
 import { ChevronLeft, ChevronRight, Trophy, Target, TrendingUp } from "lucide-react"
+import type { AccessSummary } from "@/lib/payments/access-summary"
 
 type RankItem = {
   key: string
@@ -26,8 +27,47 @@ type RankItem = {
   trend?: "up" | "down" | "flat"
 }
 
+/** 관리자 신호를 카드가 기대하는 형태로 보정 */
+function normalizeAccessForCard(
+  access: AccessSummary | (Record<string, any> & Partial<AccessSummary>) | null | undefined
+): AccessSummary | null {
+  if (!access) return null
+  const base = access as AccessSummary & { is_admin?: boolean; role?: string }
+  const isAdmin = base.reason === "OK_ADMIN" || base.is_admin === true || base.role === "admin"
+  if (!isAdmin) return base
+  return {
+    ...base,
+    reason: "OK_ADMIN",
+    status: "pro",
+    free_sessions_left: Number.MAX_SAFE_INTEGER,
+    free_sessions_limit: Number.MAX_SAFE_INTEGER,
+  } as AccessSummary
+}
+
 export default function DashboardPage() {
   const { loading, error, data } = useDashboard()
+
+  // ✅ learn 페이지처럼 entitlements를 1회 더 조회해 관리자 신호를 확보
+  const [entitlement, setEntitlement] = useState<AccessSummary | null>(null)
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/entitlements/me", { cache: "no-store" })
+        if (!res.ok) return
+        const json: AccessSummary = await res.json()
+        if (live) setEntitlement(json)
+      } catch {}
+    })()
+    return () => { live = false }
+  }, [])
+
+  // ✅ 카드에 줄 최종 access: entitlements가 관리자면 그걸 우선, 아니면 대시보드 access 보정본
+  const accessForCard: AccessSummary | null =
+    entitlement?.reason === "OK_ADMIN"
+      ? normalizeAccessForCard(entitlement)
+      : normalizeAccessForCard(data?.access) // 기존 로직 유지 (파일 원본 구조는 동일)  :contentReference[oaicite:3]{index=3}
+
 
   const [ym, setYm] = useState<{ year: number; month: number } | null>(null)
   const [learnedDates, setLearnedDates] = useState<string[]>([])
@@ -147,7 +187,7 @@ export default function DashboardPage() {
     )
   }
 
-  const { level, delta30d, totalSentenceCount, studiedWordCount, priorityConcepts, gates, levelMeta, difficulty, access } = data
+  const { level, delta30d, totalSentenceCount, studiedWordCount, priorityConcepts, gates, levelMeta, difficulty } = data
   const monthLabel = `${ym.year}년 ${String(ym.month).padStart(2, "0")}월`
 
   const rankList: RankItem[] = priorityConcepts.map((item, idx) => ({
@@ -180,7 +220,7 @@ export default function DashboardPage() {
             <StartLearningCard
               disabledWeakSession={!gates.weakSessionEnabled}
               difficultyNotice={difficulty ? { applied: difficulty.applied, reason: difficulty.reason } : undefined}
-              accessSummary={access}
+              accessSummary={accessForCard}  // ✅ 보정된 access 전달 (관리자 신호 포함)
               totalSentenceCount={totalSentenceCount}
             />
           </div>

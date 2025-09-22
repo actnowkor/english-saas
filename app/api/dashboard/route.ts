@@ -107,70 +107,51 @@ export async function GET() {
 
     let totalSentenceCount = 0
     let studiedWordCount = 0
-    {
-      const { data: sess } = await supabase
-        .from("sessions")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(5000)
-      const sessionIds = Array.from(new Set((sess ?? []).map((s: any) => s.id)))
-      if (sessionIds.length > 0) {
-        const { data: rows } = await supabase
-          .from("attempts")
-          .select("item_id, session_id")
-          .in("session_id", sessionIds)
-          .limit(20000)
-        const itemIds = Array.from(new Set((rows ?? []).map((r: any) => r.item_id)))
-        if (itemIds.length > 0) {
-          const { data: sis } = await supabase
-            .from("session_items")
-            .select("item_id, snapshot_json")
-            .in("item_id", itemIds)
-            .limit(2000)
-          const typeMap = new Map<string, string>()
-          for (const it of sis ?? []) {
-            const t = String(it?.snapshot_json?.type || "").toLowerCase()
-            if (t) typeMap.set(it.item_id, t)
-          }
-          const { data: its } = await supabase
-            .from("items")
-            .select("id, type")
-            .in("id", itemIds)
-            .limit(2000)
-          for (const it of its ?? []) {
-            if (!typeMap.has(it.id) && it.type) typeMap.set(it.id, String(it.type).toLowerCase())
-          }
-          for (const id of itemIds) {
-            const tp = typeMap.get(id) || ""
-            if (tp === "sentence") totalSentenceCount += 1
-            else if (tp === "word" || tp === "phrase") studiedWordCount += 1
-          }
-        }
-      }
-    }
-
     let learnedDates: string[] = []
+    const { data: bundleRows, error: bundleError } = await supabase
+      .from("session_bundles")
+      .select("summary_json, bundle_seq, started_at")
+      .eq("user_id", user.id)
+      .order("bundle_seq", { ascending: false })
+      .limit(100)
+    if (bundleError) {
+      console.warn("[GET /api/dashboard] session_bundles load failed", bundleError)
+    }
     {
-      const { data: sess } = await supabase
-        .from("sessions")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(5000)
-      const sessionIds = Array.from(new Set((sess ?? []).map((s: any) => s.id)))
-      if (sessionIds.length > 0) {
-        const { data: atts } = await supabase
-          .from("attempts")
-          .select("submitted_at, session_id")
-          .in("session_id", sessionIds)
-          .gte("submitted_at", monthStart.toISOString())
-          .lt("submitted_at", nextMonthStart.toISOString())
-        const set = new Set<string>()
-        for (const a of atts ?? []) {
-          const d = new Date(a.submitted_at)
-          if (!isNaN(d as any)) set.add(toYMD(d))
+      const bundles = bundleRows ?? []
+      const sentenceIds = new Set<string>()
+      const wordIds = new Set<string>()
+      const phraseIds = new Set<string>()
+      const learnedDateSet = new Set<string>()
+      for (const bundle of bundles) {
+        const summary = (bundle as any)?.summary_json ?? {}
+        const items = Array.isArray(summary?.items) ? summary.items : []
+        for (const item of items) {
+          const id = String(item?.item_id ?? "")
+          if (!id) continue
+          const typeRaw =
+            (item?.type as string | undefined) ??
+            (item?.snapshot?.type as string | undefined) ??
+            ""
+          const type = typeRaw.toLowerCase()
+          if (type === "sentence") sentenceIds.add(id)
+          else if (type === "word") wordIds.add(id)
+          else if (type === "phrase") phraseIds.add(id)
         }
-        learnedDates = Array.from(set).sort()
+        const calendarDates = summary?.calendar?.dates
+        if (Array.isArray(calendarDates)) {
+          for (const d of calendarDates) {
+            const ds = String(d)
+            if (!ds) continue
+            const date = new Date(`${ds}T00:00:00Z`)
+            if (Number.isNaN(date.getTime())) continue
+            if (date >= monthStart && date < nextMonthStart) learnedDateSet.add(ds)
+          }
+        }
       }
+      totalSentenceCount = sentenceIds.size
+      studiedWordCount = wordIds.size + phraseIds.size
+      learnedDates = Array.from(learnedDateSet).sort()
     }
 
     let priorityConcepts: PriorityConcept[] = []
@@ -293,6 +274,11 @@ export async function GET() {
 // GET: 대시보드에 필요한 누적 집계/레벨 평가/난이도 정보를 반환한다.
 
 // 사용법: /dashboard 클라이언트가 요약 데이터를 요청한다.
+
+
+
+
+
 
 
 

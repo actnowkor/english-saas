@@ -1,32 +1,18 @@
 ﻿// 경로: app/api/sessions/[id]/route.ts
-// 역할: 세션 메타와 스냅샷을 조회하는 API 핸들러
-// 의존관계: lib/supabase/server-client.ts, lib/logic/level-utils.ts
+// 역할: 학습 세션(진행 중/완료) 상세 데이터를 조회하는 API
+// 의존관계: lib/supabase/server-client.ts, lib/logic/level-utils.ts, supabase RPC get_bundle_result
 // 포함 함수: GET()
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server-client"
 import { extractAdjustmentFromStrategy } from "@/lib/logic/level-utils"
 
-type SessionItemRow = {
+interface SessionItemRow {
   item_id: string
   order_index: number
-  snapshot_json: any
-}
-
-type SessionResponse = {
-  session: {
-    session_id: string
-    strategy: any
-    adjustment: ReturnType<typeof extractAdjustmentFromStrategy>
-    level_snapshot: { current_level: number; stats: any }
-    items: Array<{
-      item_id: string
-      order_index: number
-      concept_key?: string
-      concept_ko?: string
-      snapshot: any
-    }>
-  }
+  snapshot: any
+  type?: string | null
+  level?: string | null
 }
 
 async function fetchConceptKoMap(supabase: any, keys: string[]) {
@@ -52,15 +38,15 @@ async function fetchConceptKoMap(supabase: any, keys: string[]) {
         if (map.size === new Set(keys).size) break
       }
     } catch {
-      // 무시하고 다음 테이블 시도
+      // 다음 후보 테이블로 시도
     }
   }
   return map
 }
-// fetchConceptKoMap: 개념 키 리스트를 받아 한국어 이름을 매핑한다.
+// fetchConceptKoMap: 개념 키 목록을 받아 한글 이름을 매핑한다.
 
 export async function GET(
-  req: Request,
+  _req: Request,
   context: { params: { id: string } } | { params: Promise<{ id: string }> }
 ) {
   const params = await Promise.resolve((context as any).params)
@@ -76,7 +62,7 @@ export async function GET(
   try {
     const { data: sessionRow, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, user_id, strategy_json, target_item_count, started_at, status")
+      .select("id, user_id, strategy_json, target_item_count, started_at, status, bundle_id")
       .eq("id", sid)
       .single()
     if (sessionError || !sessionRow) throw sessionError ?? new Error("세션을 찾을 수 없습니다.")
@@ -84,23 +70,51 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const { data: items, error: itemsError } = await supabase
-      .from("session_items")
-      .select("item_id, order_index, snapshot_json")
-      .eq("session_id", sid)
-      .order("order_index", { ascending: true })
-    if (itemsError) throw itemsError
+    let rawItems: SessionItemRow[] = []
+    let strategy = sessionRow.strategy_json ?? {}
+
+    if (sessionRow.status === "completed" && sessionRow.bundle_id) {
+      const { data: bundleData, error: bundleError } = await supabase.rpc("get_bundle_result", {
+        p_bundle_id: sessionRow.bundle_id,
+      })
+      if (bundleError) throw bundleError
+      const summary = (bundleData as any)?.summary ?? {}
+      const metadata = summary?.metadata ?? {}
+      strategy = metadata?.strategy ?? strategy ?? {}
+      rawItems = (Array.isArray(summary?.items) ? summary.items : []).map((item: any) => ({
+        item_id: String(item?.item_id ?? ""),
+        order_index: Number(item?.order_index ?? 0),
+        snapshot: item?.snapshot ?? {},
+        type: item?.type ?? null,
+        level: item?.level ?? null,
+      }))
+    } else {
+      const { data: items, error: itemsError } = await supabase
+        .from("session_items")
+        .select("item_id, order_index, snapshot_json")
+        .eq("session_id", sid)
+        .order("order_index", { ascending: true })
+      if (itemsError) throw itemsError
+      rawItems = (items ?? []).map((r: any) => ({
+        item_id: String(r.item_id),
+        order_index: Number(r.order_index ?? 0),
+        snapshot: r.snapshot_json ?? {},
+        type: (r?.snapshot_json?.type as string | undefined) ?? null,
+        level: (r?.snapshot_json?.level as string | undefined) ?? null,
+      }))
+    }
+
+    rawItems.sort((a, b) => a.order_index - b.order_index)
 
     const conceptKeys = Array.from(
       new Set(
-        (items ?? [])
-          .map((r: SessionItemRow) => String(r?.snapshot_json?.concept_key || ""))
+        rawItems
+          .map((r) => String(r?.snapshot?.concept_key || ""))
           .filter((k) => k && k.length > 0)
       )
     )
     const koMap = await fetchConceptKoMap(supabase, conceptKeys)
 
-    const strategy = sessionRow.strategy_json ?? {}
     const adjustment = extractAdjustmentFromStrategy(strategy)
 
     const { data: userRow } = await supabase
@@ -114,24 +128,25 @@ export async function GET(
       stats: strategy?.stats_snapshot ?? null,
     }
 
-    const response: SessionResponse = {
+    const response = {
       session: {
         session_id: sessionRow.id,
         strategy,
         adjustment,
         level_snapshot: levelSnapshot,
-        items:
-          items?.map((r: SessionItemRow) => {
-            const conceptKey = String(r?.snapshot_json?.concept_key || "")
-            const conceptName = conceptKey ? koMap.get(conceptKey)?.display_name || conceptKey : undefined
-            return {
-              item_id: r.item_id,
-              order_index: r.order_index,
-              concept_key: conceptKey || undefined,
-              concept_ko: conceptName,
-              snapshot: r.snapshot_json,
-            }
-          }) ?? [],
+        items: rawItems.map((r) => {
+          const conceptKey = String(r?.snapshot?.concept_key || "")
+          const conceptName = conceptKey ? koMap.get(conceptKey)?.display_name || conceptKey : undefined
+          return {
+            item_id: r.item_id,
+            order_index: r.order_index,
+            concept_key: conceptKey || undefined,
+            concept_ko: conceptName,
+            type: r.type ?? (r.snapshot?.type as string | undefined) ?? null,
+            level: r.level ?? (r.snapshot?.level as string | undefined) ?? null,
+            snapshot: r.snapshot,
+          }
+        }),
       },
     }
 
@@ -141,6 +156,6 @@ export async function GET(
     return NextResponse.json({ error: e?.message ?? "세션 로드 실패" }, { status: 500 })
   }
 }
-// GET: 특정 세션의 전략, 조정 정보, 문항 스냅샷을 반환한다.
+// GET: 세션 상태에 따라 번들이나 세션 아이템을 기반으로 상세 정보를 반환한다.
 
-// 사용법: 학습 페이지에서 세션을 불러올 때 호출한다.
+// 용도: 학습 화면 및 히스토리 상세에서 세션 정보를 요청한다.
