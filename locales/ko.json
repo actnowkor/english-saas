@@ -13,7 +13,12 @@
     "title": "영어 학습 시작하기",
     "google_signin": "Google로 로그인",
     "signing_in": "로그인 중...",
-    "error": "로그인에 실패했습니다"
+    "error": "로그인에 실패했습니다",
+    "inapp_notice_title": "외부 브라우저에서 열어주세요",
+    "inapp_notice": "현재 앱 내장 브라우저에서는 로그인 완료가 어려울 수 있습니다. 우측 상단 ⋮ 메뉴에서 \"기본 브라우저로 열기\"를 선택하거나 Safari/Chrome 등 외부 브라우저에서 다시 열어주세요.",
+    "open_external": "외부 브라우저에서 열기",
+    "open_external_failed": "새 창을 열 수 없습니다. 브라우저 메뉴에서 \"기본 브라우저로 열기\"를 선택해주세요.",
+    "oauth_url_missing": "로그인 주소를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."
   },
   "onboarding": {
     "title": "학습 레벨 선택",
