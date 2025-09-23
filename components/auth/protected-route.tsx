@@ -1,4 +1,7 @@
-// components/auth/protected-route.tsx
+// 경로: components/auth/protected-route.tsx
+// 역할: 인증 상태에 따라 접근 권한을 제어하는 보호 라우트를 제공한다.
+// 의존관계: @/hooks/use-auth, next/navigation, @/components/ui/skeleton
+// 포함 함수: ProtectedRoute()
 "use client"
 
 import type React from "react"
@@ -18,20 +21,29 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push("/signin")
-        return
+    if (loading) return
+
+    if (!user) {
+      if (typeof window !== "undefined") {
+        const redirectPath = sessionStorage.getItem("redirectAfterSignOut")
+        if (redirectPath) {
+          sessionStorage.removeItem("redirectAfterSignOut")
+          router.replace(redirectPath)
+          return
+        }
       }
 
-      if (requireAdmin && user.role !== "admin") {
-        router.push("/403")
-        return
-      }
-
-     // 온보딩 여부는 서버/라우트 레벨에서 처리
-     // 여기서는 로그인/권한만 확인
+      router.push("/signin")
+      return
     }
+
+    if (requireAdmin && user.role !== "admin") {
+      router.push("/403")
+      return
+    }
+
+    // 온보딩 여부는 서버/라우트 레벨에서 처리
+    // 여기서는 로그인/권한만 확인
   }, [user, loading, requireAdmin, router])
 
   if (loading) {
@@ -55,3 +67,4 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   return <>{children}</>
 }
+// ProtectedRoute: 사용자 권한을 확인해 허용되지 않는 페이지 접근을 차단한다.

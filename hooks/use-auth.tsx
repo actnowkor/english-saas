@@ -127,6 +127,9 @@ export function AuthProvider({
   const signOut = async (): Promise<boolean> => {
     setLoading(true)
     try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("redirectAfterSignOut", "/")
+      }
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.warn("[useAuth] 로그아웃에 실패했습니다.", error.message)
