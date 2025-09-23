@@ -17,6 +17,13 @@ export type LevelStats = {
   stable_concept_ratio: number
   low_box_concept_count: number
 }
+export type LevelUpPolicy = {
+  level: number
+  min_total_attempts: number | null
+  min_correct_rate: number | null
+  min_box_level_ratio: number | null
+}
+// LevelUpPolicy: 레벨 승급 정책 임계값 정보를 담는다.
 
 export type LevelEvaluation = {
   eligible: boolean

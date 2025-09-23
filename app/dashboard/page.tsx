@@ -214,6 +214,8 @@ export default function DashboardPage() {
               eligible={Boolean(levelMeta?.eligibleForNext)}
               reason={levelMeta?.reason ?? "승급 평가 정보를 불러왔습니다."}
               targetLevel={levelMeta?.targetLevel ?? level + 1}
+              stats={levelMeta?.stats ?? null}
+              policy={levelMeta?.policy ?? null}
             />
             <MetricCard title="작성한 문장 수" value={totalSentenceCount} tooltip="세션에서 학습자가 직접 작성하거나 복습한 문장 수" />
             <MetricCard title="학습한 어휘 수" value={studiedWordCount} tooltip="문장 외에 학습한 단어 또는 구절 개수" />

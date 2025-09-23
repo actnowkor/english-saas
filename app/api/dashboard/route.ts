@@ -9,6 +9,7 @@ import { createServiceClient } from "@/lib/supabase/service-client"
 import { loadAccessSummary } from "@/lib/payments/access-summary"
 import type { AccessSummary } from "@/lib/payments/access-summary"
 import { evaluateUserLevelProgress, extractAdjustmentFromStrategy } from "@/lib/logic/level-utils"
+import type { LevelStats, LevelUpPolicy } from "@/lib/logic/level-utils"
 
 type PriorityConcept = {
   key: string
@@ -31,6 +32,8 @@ type DashboardData = {
     reason: string
     targetLevel: number
     recentLevelEntry: { level: number; changed_at: string; source: string } | null
+    stats: LevelStats | null
+    policy: LevelUpPolicy | null
   }
   difficulty: {
     applied: boolean
@@ -192,8 +195,36 @@ export async function GET() {
     }
 
     const levelEval = await evaluateUserLevelProgress(supabase, user.id)
+    const levelStats: LevelStats | null = levelEval.stats ?? null
 
     const recentLevelEntry = hist && hist.length > 0 ? hist[hist.length - 1] : null
+
+    const computedTarget = Number(levelEval.target_level || Number(level) + 1) || Number(level) + 1
+    let levelPolicy: LevelUpPolicy | null = null
+    try {
+      const { data: policyRow, error: policyError } = await service
+        .from("policy_level_up")
+        .select("level,min_total_attempts,min_correct_rate,min_box_level_ratio")
+        .eq("level", computedTarget)
+        .maybeSingle()
+      if (policyError) throw policyError
+      if (policyRow) {
+        levelPolicy = {
+          level: Number(policyRow.level ?? computedTarget),
+          min_total_attempts:
+            policyRow.min_total_attempts != null ? Number(policyRow.min_total_attempts) : null,
+          min_correct_rate:
+            policyRow.min_correct_rate != null ? Number(policyRow.min_correct_rate) : null,
+          min_box_level_ratio:
+            policyRow.min_box_level_ratio != null ? Number(policyRow.min_box_level_ratio) : null,
+        }
+      }
+    } catch (policyError) {
+      console.warn(
+        "[GET /api/dashboard] level policy load failed",
+        (policyError as any)?.message || policyError
+      )
+    }
 
     let difficulty = {
       applied: false,
@@ -227,7 +258,7 @@ export async function GET() {
       levelMeta: {
         eligibleForNext: levelEval.eligible,
         reason: levelEval.reason,
-        targetLevel: levelEval.target_level,
+        targetLevel: levelEval.target_level || computedTarget,
         recentLevelEntry: recentLevelEntry
           ? {
               level: Number(recentLevelEntry.level),
@@ -235,6 +266,8 @@ export async function GET() {
               source: recentLevelEntry.source,
             }
           : null,
+        stats: levelStats,
+        policy: levelPolicy,
       },
       difficulty,
       access: accessSummary,
@@ -259,6 +292,8 @@ export async function GET() {
         reason: "데이터를 불러오지 못했습니다.",
         targetLevel: 0,
         recentLevelEntry: null,
+        stats: null,
+        policy: null,
       },
       difficulty: {
         applied: false,
