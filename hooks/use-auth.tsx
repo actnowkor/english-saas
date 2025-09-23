@@ -20,7 +20,7 @@ type AuthContextType = {
   user: AppUser | null
   loading: boolean
   signIn: () => Promise<void>
-  signOut: () => Promise<void>
+  signOut: () => Promise<boolean>
   updateUser: (updates: Partial<AppUser>) => void
 }
 
@@ -124,15 +124,24 @@ export function AuthProvider({
     }
   }
 
-  const signOut = async () => {
+  const signOut = async (): Promise<boolean> => {
     setLoading(true)
     try {
-      await supabase.auth.signOut().catch(() => {})
-    } finally {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.warn("[useAuth] 로그아웃에 실패했습니다.", error.message)
+        return false
+      }
       setUser(null)
+      return true
+    } catch (err: any) {
+      console.warn("[useAuth] 로그아웃 처리 중 예외가 발생했습니다.", err?.message ?? err)
+      throw err
+    } finally {
       setLoading(false)
     }
   }
+  // signOut: Supabase 로그아웃 요청을 보내고 성공 여부를 반환한다.
 
   const updateUser = (updates: Partial<AppUser>) => {
     if (!user) return

@@ -81,9 +81,26 @@ export default function SettingsPage() {
   }
 
   const redirectHomeAfterSignOut = async () => {
-    await signOut()
-    router.push("/")
+    try {
+      const ok = await signOut()
+      if (ok) {
+        router.push("/")
+        return
+      }
+      toast({
+        title: "로그아웃에 실패했습니다.",
+        description: "네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+        variant: "destructive",
+      })
+    } catch (err: any) {
+      toast({
+        title: "로그아웃 처리 중 오류가 발생했습니다.",
+        description: err?.message ?? "잠시 후 다시 시도해 주세요.",
+        variant: "destructive",
+      })
+    }
   }
+  // redirectHomeAfterSignOut: 로그아웃 성공 시 홈으로 이동한다.
 
   const startPayment = async () => {
     if (!phone.trim()) {
