@@ -6,6 +6,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowUp, ArrowDown, Minus, Sparkles } from "lucide-react"
+import type { LevelStats, LevelUpPolicy } from "@/lib/logic/level-utils"
 
 export function LevelCard({
   level,
@@ -13,12 +14,16 @@ export function LevelCard({
   eligible,
   reason,
   targetLevel,
+  stats,
+  policy,
 }: {
   level: number
   delta30d: number
   eligible: boolean
   reason: string
   targetLevel: number
+  stats: LevelStats | null
+  policy: LevelUpPolicy | null
 }) {
   const DeltaIcon = delta30d > 0 ? ArrowUp : delta30d < 0 ? ArrowDown : Minus
   const deltaColor =
@@ -27,6 +32,29 @@ export function LevelCard({
       : delta30d < 0
       ? "text-red-600 dark:text-red-400"
       : "text-muted-foreground"
+
+  const formatPercent = (value: number | null | undefined) => {
+    if (value == null || Number.isNaN(value)) return "-"
+    return `${Math.round(Number(value) * 100)}%`
+  }
+  // formatPercent: 비율 값을 퍼센트 문자열로 변환한다.
+
+  const formatCount = (value: number | null | undefined) => {
+    if (value == null || Number.isNaN(value)) return "-"
+    return value.toLocaleString()
+  }
+  // formatCount: 카운트 값을 천 단위 구분 기호와 함께 보여준다.
+
+  const hasGoalData = Boolean(
+    stats || (policy && (policy.min_correct_rate != null || policy.min_total_attempts != null))
+  )
+
+  const recentRate = stats?.recent_correct_rate ?? null
+  const requiredRate = policy?.min_correct_rate ?? null
+  const totalAttempts = stats?.total_attempts ?? null
+  const requiredAttempts = policy?.min_total_attempts ?? null
+  const stableRatio = stats?.stable_concept_ratio ?? null
+  const requiredRatio = policy?.min_box_level_ratio ?? null
 
   return (
     <Card>
@@ -52,6 +80,46 @@ export function LevelCard({
           </div>
         </div>
         <p className="text-sm text-muted-foreground leading-snug">{reason || "최근 평가 정보를 불러왔습니다."}</p>
+        <div className="mt-2 rounded-md border border-dashed border-muted p-3 bg-muted/30">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            다음 목표
+          </p>
+          {hasGoalData ? (
+            <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">최근 정확도</dt>
+                <dd className="text-right tabular-nums">
+                  <span>{formatPercent(recentRate)}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    / {formatPercent(requiredRate)}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">누적 시도 수</dt>
+                <dd className="text-right tabular-nums">
+                  <span>{formatCount(totalAttempts)}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    / {formatCount(requiredAttempts)}
+                  </span>
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">안정된 개념 비율</dt>
+                <dd className="text-right tabular-nums">
+                  <span>{formatPercent(stableRatio)}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    / {formatPercent(requiredRatio)}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              아직 충분한 학습 기록이 없어 다음 목표를 계산할 수 없습니다.
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

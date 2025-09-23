@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react"
 import type { AccessSummary } from "@/lib/payments/access-summary"
+import type { LevelStats, LevelUpPolicy } from "@/lib/logic/level-utils"
 
 export type PriorityConcept = {
   key: string
@@ -27,6 +28,8 @@ export type DashboardData = {
     reason: string
     targetLevel: number
     recentLevelEntry: { level: number; changed_at: string; source: string } | null
+    stats: LevelStats | null
+    policy: LevelUpPolicy | null
   }
   difficulty: {
     applied: boolean
