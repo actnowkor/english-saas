@@ -18,7 +18,7 @@ import {
 
 function SectionContainer({ id, children, className }: { id?: string; children: ReactNode; className?: string }) {
   return (
-    <section id={id} className={`mx-auto max-w-2xl px-4 ${className ?? ""}`}>
+    <section id={id} className={`mx-auto w-full max-w-3xl px-4 ${className ?? ""}`}>
       {children}
     </section>
   )
@@ -28,19 +28,19 @@ function SectionContainer({ id, children, className }: { id?: string; children: 
 export function Hero() {
   return (
     <SectionContainer id="hero" className="py-12 md:py-16">
-      <div className="space-y-6 text-center">
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-          기억에 남는 시작, 오래가는 영어 습관
+      <div className="space-y-8 text-center">
+        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-balance">
+          망각곡선을 넘어, 반복으로 완성하는 영어 뇌 루틴
         </h1>
-        <p className="text-muted-foreground leading-relaxed">
-          무작정 암기보다 경험 기반 학습이 더 오래갑니다. 과학적으로 설계된 반복 학습으로 자연스럽게 영어를 몸에 익혀보세요.
+        <p className="text-muted-foreground leading-7 md:text-lg text-balance">
+          에빙하우스 망각곡선을 기준으로 설계한 반복 스케줄과 의미 단위 복습으로, 배운 표현이 장기 기억에 단단히 안착합니다. 매일 정리된 루틴을 따라가며 자연스럽게 문장을 떠올리는 힘을 키워보세요.
         </p>
         <div className="flex justify-center gap-3 flex-wrap">
           <Button asChild size="lg">
-            <Link href="/signin">무료로 시작하기</Link>
+            <Link href="/signin">무료 체험 시작</Link>
           </Button>
           <Button asChild size="lg" variant="ghost">
-            <Link href="#features">주요 기능 보기</Link>
+            <Link href="#features">학습 설계 살펴보기</Link>
           </Button>
         </div>
         <div className="flex flex-wrap justify-center gap-3 text-primary/90">
@@ -136,44 +136,48 @@ export function Features() {
 export function Pricing() {
   return (
     <SectionContainer id="pricing" className="py-12 md:py-16">
-      <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">학습을 시작하는 가장 쉬운 방법</h2>
-      <p className="text-sm text-muted-foreground mb-8 text-center">
-        하루 1회 무료 학습으로 체험해 보고, 필요 시 30일 이용권으로 학습을 이어가세요.
+      <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center text-balance">가볍게 체험하고, 필요할 때 확장하세요</h2>
+      <p className="text-base text-muted-foreground mb-10 text-center leading-7 text-balance">
+        베타 기간에는 하루 최대 10회 학습을 무료로 경험하고, 정식 출시 이후에는 하루 1회 무료 세션으로 핵심 루틴을 이어갈 수 있습니다.
       </p>
       <div className="space-y-4">
-        <div className="rounded-2xl border bg-card shadow-sm p-5">
-          <div className="flex items-center justify-between">
+        <div className="rounded-2xl border bg-card shadow-sm p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:text-left text-center">
             <div>
-              <div className="text-lg font-semibold">무료 체험</div>
-              <p className="text-sm text-muted-foreground">회원가입만 하면 하루 1회 무료 학습</p>
+              <div className="text-lg font-semibold">무료 체험 (베타 한정)</div>
+              <p className="text-sm text-muted-foreground leading-6">
+                지금 가입하면 하루 최대 10세션을 반복 주기대로 체험하고, 정식 출시 후에도 하루 1세션은 계속 무료로 제공됩니다.
+              </p>
             </div>
-            <div className="text-right">
+            <div className="md:text-right">
               <div className="text-2xl font-bold">\0</div>
-              <div className="text-xs text-muted-foreground">하루 1세션</div>
+              <div className="text-xs text-muted-foreground">베타 10세션 · 정식 1세션</div>
             </div>
           </div>
-          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-            <li>· 기본 학습 루프 체험</li>
-            <li>· 학습 리포트 일부 제공</li>
-            <li>· 목표 레벨 진단</li>
+          <ul className="mt-4 space-y-2 text-sm text-muted-foreground leading-6">
+            <li>· 망각곡선 기반 반복 루틴 체험</li>
+            <li>· 핵심 학습 리포트 미리보기</li>
+            <li>· 목표 레벨 진단 1회 제공</li>
           </ul>
         </div>
 
-        <div className="rounded-2xl border bg-card shadow-sm p-5 ring-1 ring-primary/40">
-          <div className="flex items-center justify-between">
+        <div className="rounded-2xl border bg-card shadow-sm p-6 ring-1 ring-primary/40">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:text-left text-center">
             <div>
               <div className="text-lg font-semibold">30일 무제한 이용권</div>
-              <p className="text-sm text-muted-foreground">30일 동안 횟수 제한 없이 학습</p>
+              <p className="text-sm text-muted-foreground leading-6">
+                30일 동안 반복 루틴과 복습 스케줄을 제한 없이 이용해 장기 기억을 단단히 다질 수 있습니다.
+              </p>
             </div>
-            <div className="text-right">
+            <div className="md:text-right">
               <div className="text-2xl font-bold text-primary">\5,500</div>
-              <div className="text-xs text-muted-foreground">런칭 특가 (정가 \9,900)</div>
+              <div className="text-xs text-muted-foreground">런칭 특가 · 정가 \9,900</div>
             </div>
           </div>
-          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-            <li>· 무제한 학습&복습</li>
-            <li>· 전 기능 리포트 제공</li>
-            <li>· 맞춤 커리큘럼 추천</li>
+          <ul className="mt-4 space-y-2 text-sm text-muted-foreground leading-6">
+            <li>· 학습·복습 무제한 진행</li>
+            <li>· 전체 리포트·분석 기능 제공</li>
+            <li>· 맞춤 커리큘럼 자동 추천</li>
           </ul>
           <div className="mt-4 flex justify-end">
             <Button asChild>
@@ -190,7 +194,7 @@ export function Pricing() {
 export function Footer() {
   return (
     <footer className="border-t border-border/40">
-      <div className="mx-auto max-w-2xl px-4 py-8 text-sm text-muted-foreground">
+      <div className="mx-auto w-full max-w-3xl px-4 py-8 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center justify-center gap-4">
           <a href="#hero">처음으로</a>
           <a href="#principles">학습 철학</a>
