@@ -1,26 +1,39 @@
-// app/signin/page.tsx (전체 교체)
+// 경로: app/signin/page.tsx
+// 역할: 로그인 페이지에서 OAuth 흐름과 인앱 브라우저 안내를 처리한다.
+// 의존관계: @/hooks/use-auth, @/lib/device/is-inapp-browser, @/components/ui/button 등
+// 포함 함수: SignInPage()
+
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuth } from "@/hooks/use-auth"
-import { useTranslation } from "@/lib/i18n"
-import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 
-export default function SignInPage() {
-  // 상태: 로그인 버튼 로딩
-  const [isSigningIn, setIsSigningIn] = useState(false)
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import { isInAppBrowser } from "@/lib/device/is-inapp-browser"
+import { useTranslation } from "@/lib/i18n"
 
-  // 훅: 인증/라우팅/다국어/토스트
+export default function SignInPage() {
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [isInApp, setIsInApp] = useState(false)
+  const [showInAppGuide, setShowInAppGuide] = useState(false)
+  const [latestOauthUrl, setLatestOauthUrl] = useState<string | null>(null)
+
   const { user, signIn } = useAuth()
   const { t } = useTranslation()
   const { toast } = useToast()
   const router = useRouter()
 
-  // 로그인 성공 시 라우팅 (온보딩 or 대시보드)
   useEffect(() => {
     if (user) {
       if (user.isFirstTime) {
@@ -31,17 +44,38 @@ export default function SignInPage() {
     }
   }, [user, router])
 
-  // 클릭: Google OAuth 시작
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const inApp = isInAppBrowser()
+    setIsInApp(inApp)
+    if (inApp) {
+      setShowInAppGuide(true)
+    }
+  }, [])
+
   const handleSignIn = async () => {
     setIsSigningIn(true)
     try {
-      toast({
-        title: "Google 로그인",
-        description: "구글 인증을 진행합니다",
-        duration: 1500,
-      })
-      await signIn()
-      // 이후 onAuthStateChange로 user가 설정되면 useEffect가 라우팅 처리
+      const oauthUrl = await signIn()
+      if (!oauthUrl) {
+        throw new Error(t("auth.oauth_url_missing"))
+      }
+      setLatestOauthUrl(oauthUrl)
+
+      if (isInApp) {
+        const popup = window.open(oauthUrl, "_blank", "noopener,noreferrer")
+        if (!popup) {
+          setShowInAppGuide(true)
+          toast({
+            title: t("auth.inapp_notice_title"),
+            description: t("auth.open_external_failed"),
+            variant: "destructive",
+          })
+        }
+        return
+      }
+
+      window.location.assign(oauthUrl)
     } catch (error) {
       toast({
         title: t("auth.error"),
@@ -52,6 +86,27 @@ export default function SignInPage() {
       setIsSigningIn(false)
     }
   }
+  // handleSignIn: OAuth URL을 받아 환경에 따라 새 창 열기 또는 리디렉션을 수행한다.
+
+  const handleOpenExternal = () => {
+    if (!latestOauthUrl) {
+      toast({
+        title: t("auth.inapp_notice_title"),
+        description: t("auth.oauth_url_missing"),
+        variant: "destructive",
+      })
+      return
+    }
+    const popup = window.open(latestOauthUrl, "_blank", "noopener,noreferrer")
+    if (!popup) {
+      toast({
+        title: t("auth.inapp_notice_title"),
+        description: t("auth.open_external_failed"),
+        variant: "destructive",
+      })
+    }
+  }
+  // handleOpenExternal: 인앱 브라우저에서 외부 창 열기를 재시도한다.
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
@@ -65,7 +120,23 @@ export default function SignInPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* ✅ Mock 토글/개발자용 경고 배너 완전 제거 */}
+          {showInAppGuide ? (
+            <Alert variant="destructive">
+              <AlertTitle>{t("auth.inapp_notice_title")}</AlertTitle>
+              <AlertDescription>
+                <p>{t("auth.inapp_notice")}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={handleOpenExternal}
+                  disabled={isSigningIn || !latestOauthUrl}
+                >
+                  {t("auth.open_external")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           <Button onClick={handleSignIn} disabled={isSigningIn} className="w-full" size="lg">
             {isSigningIn ? (
@@ -111,3 +182,4 @@ export default function SignInPage() {
     </div>
   )
 }
+// SignInPage: Google OAuth 로그인과 인앱 안내 UI를 제공하는 페이지 컴포넌트다. (사용: /signin 경로)

@@ -19,7 +19,7 @@ import { buildAppUser, type AppUser, type ProfileRow } from "@/lib/auth/app-user
 type AuthContextType = {
   user: AppUser | null
   loading: boolean
-  signIn: () => Promise<void>
+  signIn: () => Promise<string | null>
   signOut: () => Promise<boolean>
   updateUser: (updates: Partial<AppUser>) => void
 }
@@ -109,20 +109,22 @@ export function AuthProvider({
     }
   }, [hasInitialUser])
 
-  const signIn = async () => {
+  const signIn = async (): Promise<string | null> => {
     setLoading(true)
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : ""
       const redirectTo = origin ? `${origin}/auth/callback?redirectedFrom=/dashboard` : undefined
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo },
+        options: { redirectTo, skipBrowserRedirect: true },
       })
       if (error) throw error
+      return data?.url ?? null
     } finally {
       setLoading(false)
     }
   }
+  // signIn: Google OAuth 로그인 URL을 발급하고 반환한다. (사용 시 수동 리디렉션 처리 필요)
 
   const signOut = async (): Promise<boolean> => {
     setLoading(true)
