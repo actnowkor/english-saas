@@ -21,6 +21,7 @@ import { LogOut, Settings, Menu, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useSidebar } from "@/hooks/use-sidebar"
 import { useAuth } from "@/hooks/use-auth"
+import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import type { AccessSummary } from "@/lib/payments/access-summary"
 
@@ -73,6 +74,7 @@ export function Header() {
   const { toggle } = useSidebar()
   const { user, signOut, loading } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   const [access, setAccess] = useState<AccessSummary | null>(null)
   const [badgeLoading, setBadgeLoading] = useState(false)
 
@@ -182,8 +184,24 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={async () => {
-                    await signOut()
-                    router.push("/")
+                    try {
+                      const ok = await signOut()
+                      if (ok) {
+                        router.push("/")
+                        return
+                      }
+                      toast({
+                        title: "로그아웃에 실패했습니다.",
+                        description: "네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+                        variant: "destructive",
+                      })
+                    } catch (err: any) {
+                      toast({
+                        title: "로그아웃 처리 중 오류가 발생했습니다.",
+                        description: err?.message ?? "잠시 후 다시 시도해 주세요.",
+                        variant: "destructive",
+                      })
+                    }
                   }}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
