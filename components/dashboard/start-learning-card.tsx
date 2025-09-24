@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Play } from "lucide-react"
 import { SessionTypeModal } from "@/components/dashboard/session-type-modal"
 import type { LevelStats } from "@/lib/logic/level-utils"
@@ -94,6 +95,7 @@ export function StartLearningCard({
   const [loading, setLoading] = useState(false)
   const [guardMessage, setGuardMessage] = useState<string | null>(null)
   const [activeSid, setActiveSid] = useState<string | null>(null)
+  const [initializing, setInitializing] = useState(true)
 
   const accessBadge = useMemo(() => buildAccessBadge(accessSummary), [accessSummary])
   const isAdmin = accessSummary?.reason === "OK_ADMIN"
@@ -105,7 +107,7 @@ export function StartLearningCard({
   const blockedForPayment = isAdmin ? false : expiredBlocksStart || showQuotaNotice
   const primaryButtonLabel = blockedForPayment
     ? "이용권 알아보기"
-    : loading
+    : loading || initializing
     ? "준비 중..."
     : activeSid && preferResumeLabel
     ? "이어서 학습"
@@ -122,6 +124,8 @@ export function StartLearningCard({
         if (mounted) setActiveSid(typeof sid === "string" && sid.length > 0 ? sid : null)
       } catch {
         /* ignore */
+      } finally {
+        if (mounted) setInitializing(false)
       }
     })()
     return () => {
@@ -190,6 +194,24 @@ export function StartLearningCard({
     }
   }
   // handleStart: 학습 시작 요청을 전송하고 결과에 따라 이동한다.
+
+  if (initializing) {
+    return (
+      <Card className="border-primary/20 bg-primary/5 space-y-4">
+        <CardHeader className="space-y-3 pb-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="absolute left-0 top-0 h-full w-1/2 -translate-x-full animate-loading-bar bg-primary/70" />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="border-primary/20 bg-primary/5 space-y-4">
@@ -262,7 +284,7 @@ export function StartLearningCard({
               setOpen(true)
             }
           }}
-          disabled={!blockedForPayment && loading}
+          disabled={!blockedForPayment && (loading || initializing)}
         >
           {primaryButtonLabel}
         </Button>
