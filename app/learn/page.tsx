@@ -390,6 +390,7 @@ export default function LearnPage() {
     setFeedback(null)
     try {
       const latency = questionStartAt ? Date.now() - questionStartAt : undefined
+
       const result = await enqueueSubmission(
         { item_id: itemId, answer: trimmedAnswer, latency_ms: latency },
         true
