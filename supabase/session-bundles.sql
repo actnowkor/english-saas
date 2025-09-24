@@ -29,6 +29,29 @@ alter table public.sessions
 create index if not exists sessions_bundle_id_idx
   on public.sessions(bundle_id);
 
+create or replace view public.session_bundle_metrics as
+select
+  sb.id as bundle_id,
+  sb.user_id,
+  sb.bundle_seq,
+  sb.started_at,
+  sb.ended_at,
+  (sb.summary_json->'metadata'->>'session_id')::uuid as session_id,
+  coalesce((sb.summary_json->'metrics'->>'total_items')::int, 0) as attempt_count,
+  coalesce((sb.summary_json->'metrics'->>'correct_items')::int, 0) as correct_count,
+  coalesce((sb.summary_json->'metrics'->>'duration_ms')::bigint, 0) as duration_ms,
+  case
+    when coalesce((sb.summary_json->'metrics'->>'total_items')::numeric, 0) > 0
+      then round(
+        coalesce((sb.summary_json->'metrics'->>'correct_items')::numeric, 0)
+        / nullif(coalesce((sb.summary_json->'metrics'->>'total_items')::numeric, 0), 0),
+        4
+      )
+    else 0
+  end as correct_rate
+from public.session_bundles sb;
+
+
 create or replace function public.truncate_old_bundles(
   p_user_id uuid,
   p_keep int default 30

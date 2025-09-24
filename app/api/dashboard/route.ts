@@ -235,10 +235,15 @@ export async function GET() {
       )
     }
 
+    const fallbackRecentRate = levelEval.stats?.recent_correct_rate ?? null
+    const fallbackLowBox = levelEval.stats?.low_box_concept_count ?? null
     let difficulty = {
       applied: false,
       reason: "최근 조정 기록 없음",
       applied_mix: null as Record<string, number> | null,
+      policy_level: null as number | null,
+      recent_correct_rate: fallbackRecentRate,
+      low_box_concept_count: fallbackLowBox,
     }
     if (levelEval.stats?.recent_session_id) {
       const { data: lastSession } = await supabase
@@ -248,10 +253,15 @@ export async function GET() {
         .maybeSingle()
       if (lastSession?.strategy_json) {
         const adj = extractAdjustmentFromStrategy(lastSession.strategy_json)
+        const rate = adj.recent_correct_rate ?? fallbackRecentRate
+        const lowBox = adj.low_box_concept_count ?? fallbackLowBox
         difficulty = {
           applied: adj.applied,
           reason: adj.reason || (adj.applied ? "난이도 조정 적용" : "조정 조건 미충족"),
           applied_mix: adj.applied_mix ?? null,
+          policy_level: adj.policy_level ?? null,
+          recent_correct_rate: rate,
+          low_box_concept_count: lowBox,
         }
       }
     }
@@ -308,6 +318,9 @@ export async function GET() {
         applied: false,
         reason: "데이터 없음",
         applied_mix: null,
+        policy_level: null,
+        recent_correct_rate: null,
+        low_box_concept_count: null,
       },
       access: EMPTY_ACCESS,
       free_sessions_left: EMPTY_ACCESS.free_sessions_left,

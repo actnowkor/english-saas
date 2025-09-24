@@ -82,7 +82,13 @@ export function StartLearningCard({
 }: {
   disabledWeakSession?: boolean
   preferResumeLabel?: boolean
-  difficultyNotice?: { applied: boolean; reason: string }
+  difficultyNotice?: {
+    applied: boolean
+    reason: string
+    policy_level?: number | null
+    recent_correct_rate?: number | null
+    low_box_concept_count?: number | null
+  }
   accessSummary?: AccessSummary | null
   totalSentenceCount?: number
 }) {
@@ -239,6 +245,17 @@ export function StartLearningCard({
               {difficultyNotice.applied
                 ? `난이도 조정 적용: ${difficultyNotice.reason || "최근 학습 기록을 바탕으로 난이도가 조정되었어요."}`
                 : `난이도 안내: ${difficultyNotice.reason || "현재 기본 난이도로 진행됩니다."}`}
+              <span className="mt-1 block text-xs text-muted-foreground">
+                최근 정답률 {typeof difficultyNotice.recent_correct_rate === "number"
+                  ? `${Math.round(difficultyNotice.recent_correct_rate * 100)}%`
+                  : "-"}
+                , 낮은 박스 개념수 {typeof difficultyNotice.low_box_concept_count === "number"
+                  ? difficultyNotice.low_box_concept_count.toLocaleString()
+                  : "-"}
+                {typeof difficultyNotice.policy_level === "number"
+                  ? ` · 정책 레벨 L${difficultyNotice.policy_level}`
+                  : ""}
+              </span>
             </AlertDescription>
           </Alert>
         )}

@@ -102,12 +102,33 @@ export function extractAdjustmentFromStrategy(strategy: any): StrategyAdjustment
         ])
       )
     : null
+  const rawPolicy = adj?.policy_level
+  const rawRecentRate = adj?.recent_correct_rate
+  const rawLowBox = adj?.low_box_concept_count
+  const policyLevel =
+    typeof rawPolicy === "number"
+      ? rawPolicy
+      : rawPolicy != null && !Number.isNaN(Number(rawPolicy))
+      ? Number(rawPolicy)
+      : null
+  const recentRate =
+    typeof rawRecentRate === "number"
+      ? rawRecentRate
+      : rawRecentRate != null && !Number.isNaN(Number(rawRecentRate))
+      ? Number(rawRecentRate)
+      : null
+  const lowBox =
+    typeof rawLowBox === "number"
+      ? rawLowBox
+      : rawLowBox != null && !Number.isNaN(Number(rawLowBox))
+      ? Number(rawLowBox)
+      : null
   return {
     applied: Boolean(adj?.applied),
     reason: typeof adj?.reason === "string" ? adj.reason : "",
-    policy_level: adj?.policy_level ?? null,
-    recent_correct_rate: adj?.recent_correct_rate ?? null,
-    low_box_concept_count: adj?.low_box_concept_count ?? null,
+    policy_level: policyLevel,
+    recent_correct_rate: recentRate,
+    low_box_concept_count: lowBox,
     applied_mix: normalizedMix,
   }
 }

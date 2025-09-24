@@ -25,6 +25,17 @@ export function SessionStartAlert({ adjustment }: { adjustment: StrategyAdjustme
     )
   }
 
+  const recentRate =
+    typeof adjustment.recent_correct_rate === "number"
+      ? `${Math.round(adjustment.recent_correct_rate * 100)}%`
+      : null
+  const lowBox =
+    typeof adjustment.low_box_concept_count === "number"
+      ? adjustment.low_box_concept_count.toLocaleString()
+      : null
+  const policyLevel =
+    typeof adjustment.policy_level === "number" ? `L${adjustment.policy_level}` : null
+
   return (
     <Alert variant="destructive">
       <AlertTitle className="flex items-center gap-2">
@@ -32,6 +43,10 @@ export function SessionStartAlert({ adjustment }: { adjustment: StrategyAdjustme
       </AlertTitle>
       <AlertDescription>
         {adjustment.reason || "최근 성과를 기준으로 한 단계 낮은 난이도로 구성했어요."}
+        <span className="mt-1 block text-xs text-muted-foreground">
+          최근 정답률 {recentRate ?? "-"}, 낮은 박스 개념수 {lowBox ?? "-"}
+          {policyLevel ? ` · 정책 레벨 ${policyLevel}` : ""}
+        </span>
       </AlertDescription>
     </Alert>
   )
