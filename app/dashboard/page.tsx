@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingState } from "@/components/loading-spinner"
 import { useDashboard } from "@/hooks/use-dashboard"
 import { LevelCard } from "@/components/dashboard/level-card"
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -211,6 +212,7 @@ export default function DashboardPage() {
   }, [ym?.year, ym?.month, data])
 
   if (!loading && (error || !data || !ym)) {
+
     return (
       <ProtectedRoute>
         <AppLayout>

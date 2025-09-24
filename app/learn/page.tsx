@@ -359,6 +359,7 @@ export default function LearnPage() {
   return (
     <ProtectedRoute>
       <AppLayout>
+
         <div className="max-w-3xl mx-auto space-y-6 p-4">
           {showLoading && (
             <div className="space-y-4">
@@ -375,6 +376,7 @@ export default function LearnPage() {
                 </div>
               )}
             </div>
+
           )}
 
           {showStartCard && (
