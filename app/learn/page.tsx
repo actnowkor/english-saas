@@ -1,7 +1,7 @@
 ﻿// 경로: app/learn/page.tsx
 // 역할: 학습 세션 진행 페이지(문항 풀이 및 완료 처리)
 // 의존관계: app/api/sessions/*, app/api/attempts, components/dashboard/start-learning-card.tsx
-// 포함 함수: LearnPage()
+// 포함 함수: StartLearningPlaceholderSkeleton(), LearnSessionCardSkeleton(), LearnPage()
 
 "use client"
 
@@ -10,6 +10,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { LoadingState } from "@/components/loading-spinner"
@@ -51,6 +52,57 @@ type CompleteResponse = {
   ok?: boolean
   level?: { leveled_up?: boolean; new_level?: number; reason?: string }
 }
+
+function StartLearningPlaceholderSkeleton() {
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardHeader className="space-y-2 pb-3">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-48" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-6 w-32" />
+        </div>
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-4 w-56" />
+      </CardContent>
+    </Card>
+  )
+}
+// StartLearningPlaceholderSkeleton: 학습 시작 카드의 로딩 상태를 표현한다.
+
+function LearnSessionCardSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+      <Card>
+        <CardHeader className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-3 w-36" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="flex justify-end gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+// LearnSessionCardSkeleton: 세션 문제 카드 로딩 시 뼈대를 보여준다.
 
 export default function LearnPage() {
   const sp = useSearchParams()
@@ -94,14 +146,35 @@ export default function LearnPage() {
   useEffect(() => {
     const load = async () => {
       if (!sid) {
+        setLoading(false)
         setSession(null)
         setLevelStats(null)
         setCurrentLevel(null)
-        setLoading(false)
+        setIdx(0)
+        setAnswer("")
+        setFeedback(null)
+        setAnsweredMap({})
+        setQuestionStartAt(null)
+        setFinalReady(false)
+        setCompletedSent(false)
+        setLevelToastSent(false)
         return
       }
+      setLoading(true)
+      setSession(null)
+      setLevelStats(null)
+      setCurrentLevel(null)
+      setIdx(0)
+      setAnswer("")
+      setFeedback(null)
+      setAnsweredMap({})
+      setQuestionStartAt(null)
+      setFinalReady(false)
+      setCompletedSent(false)
+      setLevelToastSent(false)
       try {
         const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}`, { cache: "no-store" })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
         const s: LoadedSession | null = json?.session ?? null
         setSession(s)
@@ -115,6 +188,8 @@ export default function LearnPage() {
         setAnsweredMap({})
         setQuestionStartAt(Date.now())
         setLevelToastSent(false)
+      } catch (error) {
+        console.warn("[learn] failed to load session", error)
       } finally {
         setLoading(false)
       }
@@ -277,19 +352,34 @@ export default function LearnPage() {
     return `${idx + 1} / ${session.items.length}`
   }, [session, idx])
 
+  const showLoading = loading
+  const showStartCard = !loading && (!sid || !session || (session.items?.length ?? 0) === 0)
+  const showSession = !loading && Boolean(session && current)
+
   return (
     <ProtectedRoute>
       <AppLayout>
-        <div className="max-w-3xl mx-auto p-4 space-y-6">
-          {loading && (
-            <LoadingState
-              size="compact"
-              title="학습 세션을 준비하고 있어요"
-              message="조금만 기다려 주세요. 여러분의 학습 데이터를 가져오는 중입니다."
-            />
+
+        <div className="max-w-3xl mx-auto space-y-6 p-4">
+          {showLoading && (
+            <div className="space-y-4">
+              <LoadingState
+                size="compact"
+                title="학습 세션을 준비하고 있어요"
+                message="조금만 기다려 주세요. 여러분의 학습 데이터를 가져오는 중입니다."
+              />
+              {sid ? (
+                <LearnSessionCardSkeleton />
+              ) : (
+                <div className="max-w-md mx-auto">
+                  <StartLearningPlaceholderSkeleton />
+                </div>
+              )}
+            </div>
+
           )}
 
-          {!loading && (!sid || !session || (session.items?.length ?? 0) === 0) && (
+          {showStartCard && (
             <div className="max-w-md mx-auto">
               <StartLearningCard
                 preferResumeLabel
@@ -301,7 +391,7 @@ export default function LearnPage() {
             </div>
           )}
 
-          {session && current && (
+          {showSession && (
             <>
               <SessionStartAlert currentLevel={currentLevel} stats={levelStats} />
               <div className="flex items-center justify-between">
@@ -340,7 +430,7 @@ export default function LearnPage() {
 
                   {answeredMap[current.item_id] === true && (
                     <div className="flex items-start justify-between gap-4">
-                      <div className="text-sm flex-1">
+                      <div className="flex-1 text-sm">
                         {feedback && (
                           <>
                             {feedback.label === "correct"
@@ -350,7 +440,7 @@ export default function LearnPage() {
                               : feedback.label === "near_miss"
                               ? "근접 정답"
                               : "오답"}
-                            <div className="text-muted-foreground mt-1">{feedback.text}</div>
+                            <div className="mt-1 text-muted-foreground">{feedback.text}</div>
                             {showAnswerLine ? (
                               <div className="mt-1 text-muted-foreground">
                                 정답: <b className="text-foreground">{current.snapshot?.answer_en}</b>
