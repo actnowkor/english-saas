@@ -1,7 +1,7 @@
 // 경로: app/api/attempts/route.ts
 // 역할: (단건 또는 배치) 답안 제출 → attempts 생성(RPC) → 스냅샷 기준 룰 채점 → grades 저장(RPC)
 // 전제: attempts와 grades는 1:1, 채점은 반드시 session_items.snapshot_json 기준
-// 연관: app/learn/page.tsx, app/api/sessions/[id]/complete/route.ts, DB RPC submit_attempt/save_grade
+// 연관: app/learn/page.tsx, app/api/sessions/[id]/complete/route.ts, DB RPC grade_attempts_batch
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server-client"
@@ -95,9 +95,18 @@ export async function POST(req: Request) {
     }
     const snapMap = new Map(snaps?.map((r) => [r.item_id, r.snapshot_json]) ?? [])
 
-    // 4) 제출→채점→grade 저장 루프
-    let saved = 0
-    const results: Array<{ item_id: string; attempt_id: string; label: "correct" | "variant" | "near_miss" | "wrong"; feedback: string }> = []
+    // 4) 제출→채점 정보 구성(루프) 후 배치 RPC 호출
+    const batchPayload: Array<{
+      item_id: string
+      answer_raw: string
+      latency_ms: number | null
+      label: "correct" | "variant" | "near_miss" | "wrong"
+      feedback: string
+      minimal_rewrite: string | null
+      error_tags: any[]
+      judge: string
+      evidence: Record<string, unknown>
+    }> = []
 
     for (const it of items) {
       const snap = snapMap.get(it.item_id)
@@ -105,23 +114,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `세션에 없는 문항: ${it.item_id}` }, { status: 400 })
       }
 
-      // 스냅샷 기준 정답/허용/근접오답
       const correct = normalize(snap?.answer_en ?? "")
       const variants = parseList(snap?.allowed_variants_text)
       const nearMisses = parseList(snap?.near_misses_text)
 
-      // 제출 저장 (submit_attempt RPC) — attempts 1건 생성
-      const { data: attempt_id, error: subErr } = await supabase.rpc("submit_attempt", {
-        p_session_id: session_id,
-        p_item_id: it.item_id,
-        p_answer_raw: it.answer ?? "",
-        p_latency_ms: it.latency_ms ?? null,
-      })
-      if (subErr || !attempt_id) {
-        return NextResponse.json({ error: "시도 저장 실패" }, { status: 500 })
-      }
-
-      // 룰 채점 (스냅샷 기준)
       const userNorm = normalize(it.answer ?? "")
       let label: "correct" | "variant" | "near_miss" | "wrong" = "wrong"
       if (userNorm === correct) label = "correct"
@@ -137,28 +133,42 @@ export async function POST(req: Request) {
           ? "거의 맞았어요! 조금만 더 다듬어보세요."
           : `정답: ${snap?.answer_en ?? ""}`
 
-      // 채점 저장 (save_grade RPC) — grades 1건(1:1) 저장
-      const { error: gErr } = await supabase.rpc("save_grade", {
-        p_attempt_id: attempt_id,
-        p_label: label,
-        p_feedback: feedback,
-        p_minimal_rewrite:
-          label === "wrong" || label === "near_miss" ? (snap?.answer_en ?? null) : null,
-        p_error_tags: [],   // 초기 비움 → 추후 AI 채점시 채움
-        p_judge: "rule",
-        p_evidence: {},
+      batchPayload.push({
+        item_id: it.item_id,
+        answer_raw: it.answer ?? "",
+        latency_ms: typeof it.latency_ms === "number" ? it.latency_ms : null,
+        label,
+        feedback,
+        minimal_rewrite: label === "wrong" || label === "near_miss" ? (snap?.answer_en ?? null) : null,
+        error_tags: [],
+        judge: "rule",
+        evidence: {},
       })
-      if (gErr) {
-        return NextResponse.json({ error: "채점 저장 실패" }, { status: 500 })
-      }
-
-      saved += 1
-      results.push({ item_id: it.item_id, attempt_id, label, feedback })
     }
 
-    // 응답: 단건/배치 공통
-    // - learn(page.tsx)의 배치 호출은 상태만 확인하므로 충분
-    // - 단건 호출을 프론트에서 사용할 경우 label/feedback을 즉시 표시 가능
+    if (batchPayload.length === 0) {
+      return NextResponse.json({ error: "채점 대상이 없습니다." }, { status: 400 })
+    }
+
+    const { data: stored, error: batchErr } = await supabase.rpc("grade_attempts_batch", {
+      p_session_id: session_id,
+      p_attempts: batchPayload,
+    })
+
+    if (batchErr) {
+      console.error("[grade_attempts_batch error]", batchErr)
+      return NextResponse.json({ error: "채점 저장 실패" }, { status: 500 })
+    }
+
+    const saved = stored?.length ?? 0
+    const results =
+      stored?.map((row: any) => ({
+        item_id: row.item_id as string,
+        attempt_id: row.attempt_id as string,
+        label: row.label as "correct" | "variant" | "near_miss" | "wrong",
+        feedback: row.feedback as string,
+      })) ?? []
+
     return NextResponse.json({ ok: true, saved, results })
   } catch (e: any) {
     console.error("[POST /api/attempts] error:", e?.message || e)
