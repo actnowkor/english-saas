@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useTranslation } from "@/lib/i18n"
+import type { LevelStats } from "@/lib/logic/level-utils"
 
 type SessionType = "standard" | "review_only" | "new_only" | "weakness"
 
@@ -20,13 +21,8 @@ type SessionTypeModalProps = {
   onStartSession: (type: SessionType) => void
   totalSentenceCount: number
   preselectedType?: SessionType
-  difficultyNotice?: {
-    applied: boolean
-    reason: string
-    policy_level?: number | null
-    recent_correct_rate?: number | null
-    low_box_concept_count?: number | null
-  }
+  levelStats?: LevelStats | null
+  currentLevel?: number | null
 }
 
 const SESSION_TYPES: SessionType[] = ["new_only", "standard", "review_only", "weakness"]
@@ -37,7 +33,8 @@ export function SessionTypeModal({
   onStartSession,
   totalSentenceCount,
   preselectedType,
-  difficultyNotice,
+  levelStats,
+  currentLevel,
 }: SessionTypeModalProps) {
   const { t } = useTranslation()
   const [selectedType, setSelectedType] = useState<SessionType>(preselectedType || "new_only")
@@ -62,26 +59,25 @@ export function SessionTypeModal({
           </Alert>
         )}
 
-        {difficultyNotice && (
-          <Alert variant={difficultyNotice.applied ? "destructive" : "default"}>
+        {levelStats ? (
+          <Alert>
             <AlertDescription>
-              {difficultyNotice.applied
-                ? `이미 세션에 ${difficultyNotice.reason || "난이도 조정"}이 적용되었습니다.`
-                : `난이도 참고: ${difficultyNotice.reason || "추가 조정 없음"}`}
+              현재 레벨 {typeof currentLevel === "number" ? `L${currentLevel}` : "-"} 기준 최근 정답률은
+              {typeof levelStats.recent_correct_rate === "number"
+                ? ` ${Math.round(levelStats.recent_correct_rate * 100)}%`
+                : " -"}
+              입니다.
               <span className="mt-1 block text-xs text-muted-foreground">
-                최근 정답률 {typeof difficultyNotice.recent_correct_rate === "number"
-                  ? `${Math.round(difficultyNotice.recent_correct_rate * 100)}%`
+                안정화 개념 {typeof levelStats.stable_concept_count === "number"
+                  ? levelStats.stable_concept_count.toLocaleString()
                   : "-"}
-                , 낮은 박스 {typeof difficultyNotice.low_box_concept_count === "number"
-                  ? difficultyNotice.low_box_concept_count.toLocaleString()
+                , 낮은 박스 {typeof levelStats.low_box_concept_count === "number"
+                  ? levelStats.low_box_concept_count.toLocaleString()
                   : "-"}
-                {typeof difficultyNotice.policy_level === "number"
-                  ? ` · 정책 레벨 L${difficultyNotice.policy_level}`
-                  : ""}
               </span>
             </AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
         <div className="grid gap-2.5 sm:gap-3">
           {SESSION_TYPES.map((sessionType) => {

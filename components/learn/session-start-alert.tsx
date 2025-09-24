@@ -1,57 +1,52 @@
 ﻿// 경로: components/learn/session-start-alert.tsx
-// 역할: 학습 시작 시 난이도 조정 안내 배너 표시
+// 역할: 학습 시작 시 현재 레벨과 최근 학습 지표를 안내한다.
 // 의존관계: components/ui/alert, lib/logic/level-utils.ts
 // 포함 함수: SessionStartAlert()
 
 "use client"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import type { StrategyAdjustment } from "@/lib/logic/level-utils"
+import type { LevelStats } from "@/lib/logic/level-utils"
 import { Gauge, Sparkles } from "lucide-react"
 
-export function SessionStartAlert({ adjustment }: { adjustment: StrategyAdjustment }) {
-  if (!adjustment) return null
+export function SessionStartAlert({
+  currentLevel,
+  stats,
+}: {
+  currentLevel?: number | null
+  stats?: LevelStats | null
+}) {
+  const levelLabel = typeof currentLevel === "number" ? `L${currentLevel}` : "기본"
 
-  if (!adjustment.applied) {
+  if (!stats) {
     return (
       <Alert>
         <AlertTitle className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4" /> 현재 난이도 유지 중
+          <Sparkles className="h-4 w-4" /> {levelLabel} 난이도로 시작합니다
         </AlertTitle>
-        <AlertDescription>
-          최근 학습 성과가 안정적이라 평소 난이도로 진행합니다.
-        </AlertDescription>
+        <AlertDescription>최근 지표가 충분하지 않아 기본 난이도를 유지합니다.</AlertDescription>
       </Alert>
     )
   }
 
-  const recentRate =
-    typeof adjustment.recent_correct_rate === "number"
-      ? `${Math.round(adjustment.recent_correct_rate * 100)}%`
-      : null
+  const recentRate = typeof stats.recent_correct_rate === "number" ? `${Math.round(stats.recent_correct_rate * 100)}%` : "-"
   const lowBox =
-    typeof adjustment.low_box_concept_count === "number"
-      ? adjustment.low_box_concept_count.toLocaleString()
-      : null
-  const policyLevel =
-    typeof adjustment.policy_level === "number" ? `L${adjustment.policy_level}` : null
+    typeof stats.low_box_concept_count === "number" ? stats.low_box_concept_count.toLocaleString() : "-"
+  const stableRatio =
+    typeof stats.stable_concept_ratio === "number" ? `${Math.round(stats.stable_concept_ratio * 100)}%` : "-"
 
   return (
-    <Alert variant="destructive">
+    <Alert>
       <AlertTitle className="flex items-center gap-2">
-        <Gauge className="h-4 w-4" /> 난이도 조정 적용
+        <Gauge className="h-4 w-4" /> {levelLabel} 난이도로 학습 중
       </AlertTitle>
       <AlertDescription>
-        {adjustment.reason || "최근 성과를 기준으로 한 단계 낮은 난이도로 구성했어요."}
-        <span className="mt-1 block text-xs text-muted-foreground">
-          최근 정답률 {recentRate ?? "-"}, 낮은 박스 개념수 {lowBox ?? "-"}
-          {policyLevel ? ` · 정책 레벨 ${policyLevel}` : ""}
-        </span>
+        최근 정답률 {recentRate}, 안정화 개념 비중 {stableRatio}, 낮은 박스 개념 {lowBox} 기준으로 학습을 이어갑니다.
       </AlertDescription>
     </Alert>
   )
 }
-// SessionStartAlert: 세션 전략 정보를 읽어 난이도 메시지를 보여준다.
+// SessionStartAlert: 현재 레벨과 레벨 업을 위한 핵심 지표를 안내한다.
 
 // 사용법: 학습 페이지에서 세션 데이터를 불러온 뒤 전달한다.
 

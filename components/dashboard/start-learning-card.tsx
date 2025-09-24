@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Play } from "lucide-react"
 import { SessionTypeModal } from "@/components/dashboard/session-type-modal"
+import type { LevelStats } from "@/lib/logic/level-utils"
 import type { AccessSummary } from "@/lib/payments/access-summary"
 
 type SessionType = "standard" | "review_only" | "new_only" | "weakness"
@@ -76,19 +77,15 @@ const toDbType = (t: SessionType) => (t === "standard" ? "mix" : t === "weakness
 export function StartLearningCard({
   disabledWeakSession,
   preferResumeLabel,
-  difficultyNotice,
+  levelStats,
+  currentLevel,
   accessSummary = null,
   totalSentenceCount = 0,
 }: {
   disabledWeakSession?: boolean
   preferResumeLabel?: boolean
-  difficultyNotice?: {
-    applied: boolean
-    reason: string
-    policy_level?: number | null
-    recent_correct_rate?: number | null
-    low_box_concept_count?: number | null
-  }
+  levelStats?: LevelStats | null
+  currentLevel?: number | null
   accessSummary?: AccessSummary | null
   totalSentenceCount?: number
 }) {
@@ -113,6 +110,25 @@ export function StartLearningCard({
     : activeSid && preferResumeLabel
     ? "이어서 학습"
     : "학습 시작"
+
+  const recentRate =
+    typeof levelStats?.recent_correct_rate === "number"
+      ? Math.round(levelStats.recent_correct_rate * 100)
+      : null
+  const stableRatio =
+    typeof levelStats?.stable_concept_ratio === "number"
+      ? Math.round(levelStats.stable_concept_ratio * 100)
+      : null
+  const stableCount =
+    typeof levelStats?.stable_concept_count === "number"
+      ? levelStats.stable_concept_count
+      : null
+  const lowBox =
+    typeof levelStats?.low_box_concept_count === "number"
+      ? levelStats.low_box_concept_count
+      : null
+  const totalAttempts =
+    typeof levelStats?.total_attempts === "number" ? levelStats.total_attempts : null
 
   useEffect(() => {
     let mounted = true
@@ -239,24 +255,25 @@ export function StartLearningCard({
           </Alert>
         )}
 
-        {difficultyNotice && (
-          <Alert variant={difficultyNotice.applied ? "destructive" : "default"}>
+        {levelStats ? (
+          <Alert>
             <AlertDescription>
-              {difficultyNotice.applied
-                ? `난이도 조정 적용: ${difficultyNotice.reason || "최근 학습 기록을 바탕으로 난이도가 조정되었어요."}`
-                : `난이도 안내: ${difficultyNotice.reason || "현재 기본 난이도로 진행됩니다."}`}
-              <span className="mt-1 block text-xs text-muted-foreground">
-                최근 정답률 {typeof difficultyNotice.recent_correct_rate === "number"
-                  ? `${Math.round(difficultyNotice.recent_correct_rate * 100)}%`
-                  : "-"}
-                , 낮은 박스 개념수 {typeof difficultyNotice.low_box_concept_count === "number"
-                  ? difficultyNotice.low_box_concept_count.toLocaleString()
-                  : "-"}
-                {typeof difficultyNotice.policy_level === "number"
-                  ? ` · 정책 레벨 L${difficultyNotice.policy_level}`
-                  : ""}
+              최근 학습 지표를 확인했어요. 현재 레벨 {typeof currentLevel === "number" ? `L${currentLevel}` : "-"} 기준
+              다음 수치를 참고하세요.
+              <span className="mt-1 block text-xs text-muted-foreground space-y-0.5">
+                <span className="block">최근 정답률 {recentRate != null ? `${recentRate}%` : "-"}</span>
+                <span className="block">
+                  안정화 개념 {stableCount != null ? stableCount.toLocaleString() : "-"}
+                  {stableRatio != null ? ` (${stableRatio}% 비중)` : ""}
+                </span>
+                <span className="block">낮은 박스 개념 {lowBox != null ? lowBox.toLocaleString() : "-"}</span>
+                <span className="block">누적 시도 {totalAttempts != null ? totalAttempts.toLocaleString() : "-"}</span>
               </span>
             </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert>
+            <AlertDescription>아직 충분한 학습 데이터가 없어 기본 난이도로 시작합니다.</AlertDescription>
           </Alert>
         )}
 
@@ -285,7 +302,8 @@ export function StartLearningCard({
           onOpenChange={setOpen}
           onStartSession={handleStart}
           preselectedType="new_only"
-          difficultyNotice={difficultyNotice}
+          levelStats={levelStats}
+          currentLevel={currentLevel}
           totalSentenceCount={totalSentenceCount}
         />
       ) : null}

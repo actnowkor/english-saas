@@ -31,13 +31,9 @@ export type DashboardData = {
     stats: LevelStats | null
     policy: LevelUpPolicy | null
   }
-  difficulty: {
-    applied: boolean
-    reason: string
-    applied_mix: Record<string, number> | null
-    policy_level: number | null
-    recent_correct_rate: number | null
-    low_box_concept_count: number | null
+  progress: {
+    currentLevel: number
+    stats: LevelStats | null
   }
   access: AccessSummary
   free_sessions_left: number

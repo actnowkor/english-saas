@@ -1,11 +1,10 @@
 // 경로: app/api/sessions/route.ts
 // 역할: 세션 생성 및 미완료 세션 조회 API 핸들러
-// 의존관계: lib/supabase/server-client.ts, lib/logic/level-utils.ts
+// 의존관계: lib/supabase/server-client.ts
 // 포함 함수: GET(), POST()
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server-client"
-import { extractAdjustmentFromStrategy } from "@/lib/logic/level-utils"
 
 type ClientType = "standard" | "new_only" | "review_only" | "weakness"
 type DbType = "new_only" | "mix" | "review_only" | "weak_focus"
@@ -18,7 +17,6 @@ type SessionPostBody = {
 type CreateSessionResponse = {
   session_id: string
   strategy?: any
-  adjustment?: ReturnType<typeof extractAdjustmentFromStrategy>
 }
 
 function normalizeType(t?: string): DbType {
@@ -106,7 +104,6 @@ export async function POST(req: Request) {
       payload = {
         session_id: sessionId,
         strategy,
-        adjustment: extractAdjustmentFromStrategy(strategy),
       }
     }
 

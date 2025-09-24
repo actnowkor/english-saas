@@ -15,7 +15,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route"
 import { StartLearningCard } from "@/components/dashboard/start-learning-card"
 import { SessionStartAlert } from "@/components/learn/session-start-alert"
 import { useToast } from "@/hooks/use-toast"
-import type { StrategyAdjustment } from "@/lib/logic/level-utils"
+import type { LevelStats } from "@/lib/logic/level-utils"
 import type { AccessSummary } from "@/lib/payments/access-summary"
 
 type SnapshotItem = {
@@ -32,8 +32,7 @@ type LoadedSession = {
   session_id: string
   strategy?: any
   items: SnapshotItem[]
-  adjustment?: StrategyAdjustment | null
-  level_snapshot?: { current_level: number; stats: any } | null
+  level_snapshot?: { current_level: number; stats: LevelStats | null } | null
 }
 
 type SubmitResult = {
@@ -60,7 +59,8 @@ export default function LearnPage() {
 
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<LoadedSession | null>(null)
-  const [adjustment, setAdjustment] = useState<StrategyAdjustment | null>(null)
+  const [levelStats, setLevelStats] = useState<LevelStats | null>(null)
+  const [currentLevel, setCurrentLevel] = useState<number | null>(null)
   const [idx, setIdx] = useState(0)
   const [answer, setAnswer] = useState("")
   const [accessSummary, setAccessSummary] = useState<AccessSummary | null>(null)
@@ -94,7 +94,8 @@ export default function LearnPage() {
     const load = async () => {
       if (!sid) {
         setSession(null)
-        setAdjustment(null)
+        setLevelStats(null)
+        setCurrentLevel(null)
         setLoading(false)
         return
       }
@@ -103,7 +104,10 @@ export default function LearnPage() {
         const json = await res.json()
         const s: LoadedSession | null = json?.session ?? null
         setSession(s)
-        setAdjustment(s?.adjustment ?? null)
+        setLevelStats(s?.level_snapshot?.stats ?? null)
+        setCurrentLevel(
+          typeof s?.level_snapshot?.current_level === "number" ? s.level_snapshot.current_level : null
+        )
         setIdx(0)
         setAnswer("")
         setFeedback(null)
@@ -116,6 +120,27 @@ export default function LearnPage() {
     }
     load()
   }, [sid])
+
+  useEffect(() => {
+    if (sid) return
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/level-progress", { cache: "no-store" })
+        if (!res.ok) return
+        const json = await res.json()
+        if (!active) return
+        setLevelStats(json?.stats ?? null)
+        setCurrentLevel(typeof json?.current_level === "number" ? json.current_level : null)
+      } catch {
+        if (!active) return
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [sid])
+  // sid가 없을 때는 별도 레벨 진행 정보를 가져와 카드에 지표를 채운다.
 
   const current = useMemo(() => {
     if (!session || session.items.length === 0) return null
@@ -263,14 +288,15 @@ export default function LearnPage() {
                 preferResumeLabel
                 accessSummary={accessSummary}
                 totalSentenceCount={0}
-                difficultyNotice={adjustment ? { applied: adjustment.applied, reason: adjustment.reason } : undefined}
+                levelStats={levelStats}
+                currentLevel={currentLevel}
               />
             </div>
           )}
 
           {session && current && (
             <>
-              <SessionStartAlert adjustment={adjustment || { applied: false, reason: "난이도 정보 없음", applied_mix: null }} />
+              <SessionStartAlert currentLevel={currentLevel} stats={levelStats} />
               <div className="flex items-center justify-between">
                 <h1 className="text-xl font-bold">학습 세션 (단건 제출)</h1>
                 <div className="text-sm text-muted-foreground">진행: {progressText}</div>

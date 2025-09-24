@@ -1,11 +1,10 @@
 ﻿// 경로: app/api/sessions/[id]/route.ts
 // 역할: 학습 세션(진행 중/완료) 상세 데이터를 조회하는 API
-// 의존관계: lib/supabase/server-client.ts, lib/logic/level-utils.ts, supabase RPC get_bundle_result
+// 의존관계: lib/supabase/server-client.ts, supabase RPC get_bundle_result
 // 포함 함수: GET()
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server-client"
-import { extractAdjustmentFromStrategy } from "@/lib/logic/level-utils"
 
 interface SessionItemRow {
   item_id: string
@@ -115,8 +114,6 @@ export async function GET(
     )
     const koMap = await fetchConceptKoMap(supabase, conceptKeys)
 
-    const adjustment = extractAdjustmentFromStrategy(strategy)
-
     const { data: userRow } = await supabase
       .from("users")
       .select("current_level")
@@ -124,7 +121,7 @@ export async function GET(
       .maybeSingle()
 
     const levelSnapshot = {
-      current_level: Number(userRow?.current_level ?? adjustment.policy_level ?? 0),
+      current_level: Number(userRow?.current_level ?? 0),
       stats: strategy?.stats_snapshot ?? null,
     }
 
@@ -132,7 +129,6 @@ export async function GET(
       session: {
         session_id: sessionRow.id,
         strategy,
-        adjustment,
         level_snapshot: levelSnapshot,
         items: rawItems.map((r) => {
           const conceptKey = String(r?.snapshot?.concept_key || "")

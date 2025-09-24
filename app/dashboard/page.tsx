@@ -187,16 +187,8 @@ export default function DashboardPage() {
     )
   }
 
-  const { level, delta30d, totalSentenceCount, studiedWordCount, priorityConcepts, gates, levelMeta, difficulty } = data
-  const difficultyNotice = difficulty
-    ? {
-        applied: difficulty.applied,
-        reason: difficulty.reason,
-        policy_level: difficulty.policy_level ?? null,
-        recent_correct_rate: difficulty.recent_correct_rate ?? null,
-        low_box_concept_count: difficulty.low_box_concept_count ?? null,
-      }
-    : undefined
+  const { level, delta30d, totalSentenceCount, studiedWordCount, priorityConcepts, gates, levelMeta, progress } = data
+  const statsForCard = progress?.stats ?? levelMeta?.stats ?? null
   const monthLabel = `${ym.year}년 ${String(ym.month).padStart(2, "0")}월`
 
   const rankList: RankItem[] = priorityConcepts.map((item, idx) => ({
@@ -230,7 +222,8 @@ export default function DashboardPage() {
             <MetricCard title="학습한 어휘 수" value={studiedWordCount} tooltip="문장 외에 학습한 단어 또는 구절 개수" />
             <StartLearningCard
               disabledWeakSession={!gates.weakSessionEnabled}
-              difficultyNotice={difficultyNotice}
+              levelStats={statsForCard}
+              currentLevel={progress?.currentLevel ?? level}
               accessSummary={accessForCard}  // ✅ 보정된 access 전달 (관리자 신호 포함)
               totalSentenceCount={totalSentenceCount}
             />
