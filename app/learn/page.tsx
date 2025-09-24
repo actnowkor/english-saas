@@ -116,6 +116,8 @@ export default function LearnPage() {
   const [idx, setIdx] = useState(0)
   const [answer, setAnswer] = useState("")
   const [accessSummary, setAccessSummary] = useState<AccessSummary | null>(null)
+  const [accessLoading, setAccessLoading] = useState(true)
+  const [levelInfoLoading, setLevelInfoLoading] = useState<boolean>(() => !sid)
 
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ label: string; text: string } | null>(null)
@@ -127,6 +129,7 @@ export default function LearnPage() {
 
   useEffect(() => {
     let active = true
+    setAccessLoading(true)
     ;(async () => {
       try {
         const res = await fetch("/api/entitlements/me", { cache: "no-store" })
@@ -135,6 +138,8 @@ export default function LearnPage() {
         if (active) setAccessSummary(json)
       } catch (error) {
         console.warn("[learn] failed to load access summary", error)
+      } finally {
+        if (active) setAccessLoading(false)
       }
     })()
     return () => {
@@ -197,8 +202,12 @@ export default function LearnPage() {
   }, [sid])
 
   useEffect(() => {
-    if (sid) return
+    if (sid) {
+      setLevelInfoLoading(false)
+      return
+    }
     let active = true
+    setLevelInfoLoading(true)
     ;(async () => {
       try {
         const res = await fetch("/api/level-progress", { cache: "no-store" })
@@ -209,6 +218,8 @@ export default function LearnPage() {
         setCurrentLevel(typeof json?.current_level === "number" ? json.current_level : null)
       } catch {
         if (!active) return
+      } finally {
+        if (active) setLevelInfoLoading(false)
       }
     })()
     return () => {
@@ -355,6 +366,7 @@ export default function LearnPage() {
   const showSessionSkeleton = loading && Boolean(sid)
   const showStartCard = !loading && (!sid || !session || (session.items?.length ?? 0) === 0)
   const showSession = !loading && Boolean(session && current)
+  const startCardLoading = showStartCard && (accessLoading || (!sid && levelInfoLoading))
 
   return (
     <ProtectedRoute>
@@ -376,13 +388,17 @@ export default function LearnPage() {
 
           {showStartCard && (
             <div className="max-w-md mx-auto">
-              <StartLearningCard
-                preferResumeLabel
-                accessSummary={accessSummary}
-                totalSentenceCount={0}
-                levelStats={levelStats}
-                currentLevel={currentLevel}
-              />
+              {startCardLoading ? (
+                <StartLearningPlaceholderSkeleton />
+              ) : (
+                <StartLearningCard
+                  preferResumeLabel
+                  accessSummary={accessSummary}
+                  totalSentenceCount={0}
+                  levelStats={levelStats}
+                  currentLevel={currentLevel}
+                />
+              )}
             </div>
           )}
 
