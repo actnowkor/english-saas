@@ -5,7 +5,7 @@
 
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,12 @@ type SubmitResult = {
     label: "correct" | "variant" | "near_miss" | "wrong"
     feedback: string
   }[]
+}
+
+type PendingAnswer = {
+  item_id: string
+  answer: string
+  latency_ms?: number
 }
 
 type CompleteResponse = {
@@ -127,6 +133,99 @@ export default function LearnPage() {
   const [completedSent, setCompletedSent] = useState(false)
   const [levelToastSent, setLevelToastSent] = useState(false)
 
+  const pendingQueueRef = useRef<PendingAnswer[]>([])
+  const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const flushPromiseRef = useRef<Promise<SubmitResult | null> | null>(null)
+
+  const handleBatchError = (error: unknown) => {
+    console.error("[learn] batch submit failed", error)
+    toast({
+      title: "제출에 실패했습니다.",
+      description: "네트워크 상태를 확인한 뒤 다시 시도해주세요.",
+    })
+  }
+  // handleBatchError: 배치 제출 실패 시 사용자에게 알림을 노출한다.
+
+  const flushPendingBatch = async (): Promise<SubmitResult | null> => {
+    if (!session) return null
+    if (flushPromiseRef.current) {
+      return flushPromiseRef.current
+    }
+    if (pendingQueueRef.current.length === 0) {
+      return null
+    }
+
+    const entries = pendingQueueRef.current
+    pendingQueueRef.current = []
+
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current)
+      flushTimerRef.current = null
+    }
+
+    const payload = {
+      session_id: session.session_id,
+      answers: entries.map((entry) => ({
+        item_id: entry.item_id,
+        answer: entry.answer,
+        latency_ms: typeof entry.latency_ms === "number" ? entry.latency_ms : undefined,
+      })),
+    }
+
+    const request = (async () => {
+      try {
+        const res = await fetch("/api/attempts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error("batch_failed")
+        const json: SubmitResult = await res.json()
+        return json
+      } catch (err) {
+        pendingQueueRef.current = [...entries, ...pendingQueueRef.current]
+        if (!flushTimerRef.current) {
+          flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null
+            flushPendingBatch().catch(handleBatchError)
+          }, 1000)
+        }
+        throw err
+      } finally {
+        flushPromiseRef.current = null
+      }
+    })()
+
+    flushPromiseRef.current = request
+    return request
+  }
+  // flushPendingBatch: 큐에 쌓인 답안을 한 번의 배치 요청으로 전송한다.
+
+  const enqueueSubmission = async (
+    entry: PendingAnswer,
+    immediate: boolean
+  ): Promise<SubmitResult | null> => {
+    if (!session) return null
+    pendingQueueRef.current = [...pendingQueueRef.current, entry]
+    if (immediate) {
+      try {
+        const result = await flushPendingBatch()
+        return result
+      } catch (err) {
+        handleBatchError(err)
+        throw err
+      }
+    }
+    if (!flushTimerRef.current) {
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = null
+        flushPendingBatch().catch(handleBatchError)
+      }, 200)
+    }
+    return null
+  }
+  // enqueueSubmission: 답안을 큐에 넣고 즉시 또는 지연 배치를 예약한다.
+
   useEffect(() => {
     let active = true
     setAccessLoading(true)
@@ -162,6 +261,12 @@ export default function LearnPage() {
         setFinalReady(false)
         setCompletedSent(false)
         setLevelToastSent(false)
+        if (flushTimerRef.current) {
+          clearTimeout(flushTimerRef.current)
+          flushTimerRef.current = null
+        }
+        pendingQueueRef.current = []
+        flushPromiseRef.current = null
         return
       }
       setLoading(true)
@@ -176,6 +281,12 @@ export default function LearnPage() {
       setFinalReady(false)
       setCompletedSent(false)
       setLevelToastSent(false)
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = null
+      }
+      pendingQueueRef.current = []
+      flushPromiseRef.current = null
       try {
         const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}`, { cache: "no-store" })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -279,21 +390,12 @@ export default function LearnPage() {
     setFeedback(null)
     try {
       const latency = questionStartAt ? Date.now() - questionStartAt : undefined
-      const payload = {
-        session_id: session.session_id,
-        item_id: itemId,
-        answer: trimmedAnswer,
-        latency_ms: latency,
-      }
-      const res = await fetch("/api/attempts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
 
-      if (!res.ok) throw new Error("submit_failed")
-      const json: SubmitResult = await res.json()
-      const r = json?.results?.[0]
+      const result = await enqueueSubmission(
+        { item_id: itemId, answer: trimmedAnswer, latency_ms: latency },
+        true
+      )
+      const r = result?.results?.find((row) => row.item_id === itemId)
       if (r) {
         setFeedback({ label: r.label, text: r.feedback })
       }
@@ -322,23 +424,17 @@ export default function LearnPage() {
     const already = answeredMap[itemId] === true
 
     if (already) {
-      goNextOrFinish()
+      await goNextOrFinish()
       return
     }
 
     setSubmitting(true)
     try {
       const latency = questionStartAt ? Date.now() - questionStartAt : undefined
-      const payload = { session_id: session.session_id, item_id: itemId, answer: "", latency_ms: latency }
-      const res = await fetch("/api/attempts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error("skip_failed")
+      await enqueueSubmission({ item_id: itemId, answer: "", latency_ms: latency }, false)
       setAnsweredMap((m) => ({ ...m, [itemId]: true }))
       setFeedback(null)
-      goNextOrFinish()
+      await goNextOrFinish()
     } catch (e) {
       console.error(e)
       alert("건너뛰기 처리 중 오류가 발생했습니다.")
@@ -359,6 +455,12 @@ export default function LearnPage() {
       setCompletedSent(false)
       setQuestionStartAt(Date.now())
     } else {
+      try {
+        await flushPendingBatch()
+      } catch (error) {
+        handleBatchError(error)
+        return
+      }
       await completeSession()
       router.push(`/result?sid=${encodeURIComponent(session.session_id)}`)
     }
@@ -479,6 +581,12 @@ export default function LearnPage() {
                           <Button
                             variant="default"
                             onClick={async () => {
+                              try {
+                                await flushPendingBatch()
+                              } catch (error) {
+                                handleBatchError(error)
+                                return
+                              }
                               if (!completedSent) {
                                 setCompletedSent(true)
                                 await completeSession()
@@ -489,7 +597,12 @@ export default function LearnPage() {
                             종합 결과 보기
                           </Button>
                         ) : (
-                          <Button variant="default" onClick={goNextOrFinish}>
+                          <Button
+                            variant="default"
+                            onClick={() => {
+                              void goNextOrFinish()
+                            }}
+                          >
                             다음
                           </Button>
                         )}
