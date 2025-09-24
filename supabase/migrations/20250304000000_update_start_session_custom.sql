@@ -1,14 +1,15 @@
--- 경로: tmp_func.txt
--- 역할: start_session_custom 함수 임시 스냅샷
+-- 경로: supabase/migrations/20250304000000_update_start_session_custom.sql
+-- 역할: start_session_custom 함수에서 난이도 조정 호출 제거 및 전략 JSON 정리
 -- 의존관계: public.policy_thresholds, public.users, public.policy_level_mix, public.policy_type_weights, public.sessions, public.session_items, public.items, public.attempts, public.user_item_status, public.user_concept_status, public.normalize_level_mix, public.get_user_level_stats
 -- 포함 함수: start_session_custom()
+
+begin;
 
 create or replace function public.start_session_custom(
   p_user_id uuid,
   p_type session_type,
   p_count int default null
-)
-returns uuid
+) returns uuid
 language plpgsql
 security definer
 set search_path = public
@@ -331,3 +332,5 @@ begin
   return v_session_id;
 end;
 $$;
+
+commit;
