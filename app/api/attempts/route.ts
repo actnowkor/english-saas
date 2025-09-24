@@ -23,19 +23,35 @@ type BatchBody = {
 // 기본 정규화: 대소문자 무시 + 문장부호 제거 + 공백 정리
 function normalize(s: string) {
   const str = (s ?? "").toLowerCase()
-  // 문장부호/기호를 공백으로 치환(하이픈/밑줄/따옴표 포함)
-  const noPunct = str
-    .replace(/[\.,!?;:\"'`~@#$%^&*()\[\]{}<>/\\|+=_-]+/g, " ")
-  // 공백 정리
+  const noPunct = str.replace(/[\.,!?;:\"'`~@#$%^&*()\[\]{}<>/\\|+=_-]+/g, " ")
   return noPunct.trim().replace(/\s+/g, " ")
 }
-function parseList(raw: any): string[] {
-  const t = typeof raw === "string" ? raw : ""
-  return t
-    .split(/\r?\n|;|\|/g)
-    .map((x) => normalize(x))
-    .filter((x) => x.length > 0)
+// normalize: 문자열을 소문자로 치환하고 문장부호를 제거한다.
+
+function parseList(...rawValues: any[]): string[] {
+  const seen = new Set<string>()
+  const results: string[] = []
+
+  for (const raw of rawValues) {
+    if (raw == null) continue
+
+    const values = Array.isArray(raw)
+      ? raw.map((v) => String(v))
+      : typeof raw === "string"
+      ? raw.split(/\r?\n|;|\||,/g)
+      : []
+
+    for (const value of values) {
+      const norm = normalize(value)
+      if (!norm || seen.has(norm)) continue
+      seen.add(norm)
+      results.push(norm)
+    }
+  }
+
+  return results
 }
+// parseList: 문자열/배열 입력을 정규화된 답안 목록으로 변환한다.
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -107,8 +123,8 @@ export async function POST(req: Request) {
 
       // 스냅샷 기준 정답/허용/근접오답
       const correct = normalize(snap?.answer_en ?? "")
-      const variants = parseList(snap?.allowed_variants_text)
-      const nearMisses = parseList(snap?.near_misses_text)
+      const variants = parseList(snap?.allowed_variants, snap?.allowed_variants_text)
+      const nearMisses = parseList(snap?.near_misses, snap?.near_misses_text)
 
       // 제출 저장 (submit_attempt RPC) — attempts 1건 생성
       const { data: attempt_id, error: subErr } = await supabase.rpc("submit_attempt", {
