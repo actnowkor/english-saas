@@ -1,13 +1,7 @@
-// app/onboarding/page.tsx
-// 목적: 레벨 선택 UI + 저장 버튼 → 서버 API 호출 → 성공/멱등이면 대시보드로 이동
-// 변경 요약:
-//  - (중요) 기존 로컬스토리지 의존과 Mock API 호출 제거
-//  - (중요) 신규 API /api/onboarding/complete 로 POST 호출
-//  - 완료/이미 완료(409) 모두 대시보드로 이동 → UX 안정
-//  - ProtectedRoute 는 인증만 담당(온보딩 여부는 서버/DB에서 판단)
-//
-// 참고: 기존 페이지는 localStorage 기반으로 온보딩 여부를 관리했습니다.
-//       이번 교체로 DB 단일 기준으로 일원화합니다.  :contentReference[oaicite:2]{index=2}
+// 경로: app/onboarding/page.tsx
+// 역할: 온보딩 레벨 선택 UI를 제공하고 선택 정보를 서버에 저장한다.
+// 의존관계: next/navigation, @/hooks/use-auth, @/hooks/use-toast, @/lib/i18n, @/components/ui/*
+// 포함 함수: toIntLevel(), OnboardingPage()
 
 "use client"
 
@@ -20,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { useTranslation } from "@/lib/i18n"
 import { useToast } from "@/hooks/use-toast"
 import { ProtectedRoute } from "@/components/auth/protected-route"
+import { useAuth } from "@/hooks/use-auth"
 
 // 온보딩에서 노출하는 레벨 목록 (표시용은 L1~L9, 서버에선 정수 1~9로 변환)
 const levels = [
@@ -41,6 +36,7 @@ function toIntLevel(level: string): number | null {
   const n = Number(m[1])
   return n >= 1 && n <= 9 ? n : null
 }
+// toIntLevel: 레벨 문자열을 서버 저장용 정수로 변환한다.
 
 export default function OnboardingPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>("")
@@ -48,6 +44,7 @@ export default function OnboardingPage() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const router = useRouter()
+  const { updateUser } = useAuth()
 
   // 저장 처리: 서버 API 호출 후 라우팅
   const handleSave = async () => {
@@ -73,11 +70,13 @@ export default function OnboardingPage() {
       // 3) 결과 분기
       if (res.ok) {
         // 최초 성공(200)
+        const onboardedAt = new Date().toISOString()
+        updateUser({ current_level: lvInt, onboarded_at: onboardedAt })
         toast({
           title: t("onboarding.saved"),
           description: `${selectedLevel} ${t("onboarding.level_set_confirm") ?? "레벨로 설정되었습니다"}`,
         })
-        router.push("/dashboard")
+        router.replace("/dashboard")
         return
       }
 
@@ -109,6 +108,7 @@ export default function OnboardingPage() {
       setIsSaving(false)
     }
   }
+  // handleSave: 레벨 저장 API 호출과 후속 UI 상태를 관리한다.
 
   return (
     <ProtectedRoute>
@@ -145,3 +145,4 @@ export default function OnboardingPage() {
     </ProtectedRoute>
   )
 }
+// OnboardingPage: 온보딩 레벨 선택과 저장을 처리하는 페이지 컴포넌트다.
