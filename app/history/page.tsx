@@ -5,9 +5,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingState } from "@/components/loading-spinner"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { SessionList } from "@/components/history/session-list"
@@ -48,6 +47,7 @@ export default function HistoryPage() {
   const handleOpenReplay = (sessionId: string) => {
     router.push(`/history/${sessionId}`)
   }
+  // handleOpenReplay: 선택한 세션 상세 페이지로 이동한다.
 
   const handleRetry = async () => {
     setError(false)
@@ -63,39 +63,19 @@ export default function HistoryPage() {
       setLoading(false)
     }
   }
+  // handleRetry: 데이터 로딩에 실패했을 때 다시 요청을 시도한다.
 
   if (loading) {
     return (
       <ProtectedRoute>
         <AppLayout>
-          <div className="space-y-6">
-            <div>
-              <Skeleton className="h-8 w-48 mb-2" />
-              <Skeleton className="h-4 w-96" />
-            </div>
-
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-5 w-16" />
-                          <Skeleton className="h-4 w-24" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="h-4 w-12" />
-                          <Skeleton className="h-4 w-16" />
-                          <Skeleton className="h-4 w-12" />
-                        </div>
-                      </div>
-                      <Skeleton className="h-8 w-20" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div className="flex min-h-[400px] items-center justify-center px-6">
+            <LoadingState
+              title="학습 이력을 불러오는 중이에요"
+              message="최근 학습 기록을 정리하고 있어요."
+              hint="잠시만 기다려 주세요."
+              className="max-w-md"
+            />
           </div>
         </AppLayout>
       </ProtectedRoute>

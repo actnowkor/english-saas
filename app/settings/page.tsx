@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
+import { LoadingState } from "@/components/loading-spinner"
 import { LevelHistory } from "@/components/settings/level-history"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/lib/i18n"
@@ -185,7 +186,13 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {entitlementLoading ? (
-                <p className="text-sm text-muted-foreground">이용권 정보를 불러오는 중...</p>
+                <LoadingState
+                  size="compact"
+                  align="start"
+                  title="이용권 정보를 확인하고 있어요"
+                  message="현재 이용 중인 혜택을 불러오는 중입니다. 잠시만 기다려 주세요."
+                  className="rounded-md border border-dashed border-primary/20 bg-muted/30 px-6"
+                />
               ) : entitlement?.status === "pro" ? (
                 <div className="space-y-3">
                   <div className="text-sm">
