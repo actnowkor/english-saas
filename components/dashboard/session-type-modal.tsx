@@ -68,12 +68,13 @@ export function SessionTypeModal({
                 : " -"}
               입니다.
               <span className="mt-1 block text-xs text-muted-foreground">
-                안정화 개념 {typeof levelStats.stable_concept_count === "number"
+                익숙한 개념 {typeof levelStats.stable_concept_count === "number"
                   ? levelStats.stable_concept_count.toLocaleString()
                   : "-"}
-                , 낮은 박스 {typeof levelStats.low_box_concept_count === "number"
+                , 학습중인 개념 {typeof levelStats.low_box_concept_count === "number"
                   ? levelStats.low_box_concept_count.toLocaleString()
                   : "-"}
+                정도예요.
               </span>
             </AlertDescription>
           </Alert>
