@@ -20,7 +20,13 @@ type SessionTypeModalProps = {
   onStartSession: (type: SessionType) => void
   totalSentenceCount: number
   preselectedType?: SessionType
-  difficultyNotice?: { applied: boolean; reason: string } | undefined
+  difficultyNotice?: {
+    applied: boolean
+    reason: string
+    policy_level?: number | null
+    recent_correct_rate?: number | null
+    low_box_concept_count?: number | null
+  }
 }
 
 const SESSION_TYPES: SessionType[] = ["new_only", "standard", "review_only", "weakness"]
@@ -62,6 +68,17 @@ export function SessionTypeModal({
               {difficultyNotice.applied
                 ? `이미 세션에 ${difficultyNotice.reason || "난이도 조정"}이 적용되었습니다.`
                 : `난이도 참고: ${difficultyNotice.reason || "추가 조정 없음"}`}
+              <span className="mt-1 block text-xs text-muted-foreground">
+                최근 정답률 {typeof difficultyNotice.recent_correct_rate === "number"
+                  ? `${Math.round(difficultyNotice.recent_correct_rate * 100)}%`
+                  : "-"}
+                , 낮은 박스 {typeof difficultyNotice.low_box_concept_count === "number"
+                  ? difficultyNotice.low_box_concept_count.toLocaleString()
+                  : "-"}
+                {typeof difficultyNotice.policy_level === "number"
+                  ? ` · 정책 레벨 L${difficultyNotice.policy_level}`
+                  : ""}
+              </span>
             </AlertDescription>
           </Alert>
         )}

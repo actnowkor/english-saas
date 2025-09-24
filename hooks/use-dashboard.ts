@@ -35,6 +35,9 @@ export type DashboardData = {
     applied: boolean
     reason: string
     applied_mix: Record<string, number> | null
+    policy_level: number | null
+    recent_correct_rate: number | null
+    low_box_concept_count: number | null
   }
   access: AccessSummary
   free_sessions_left: number
