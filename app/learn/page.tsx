@@ -241,6 +241,8 @@ export default function LearnPage() {
 
   const correctAnswer = current?.snapshot?.answer_en ?? ""
   const showAnswerLine = Boolean(correctAnswer) && !((feedback?.text ?? "").includes(correctAnswer))
+  const trimmedAnswer = useMemo(() => answer.trim(), [answer])
+  const answerIsEmpty = trimmedAnswer.length === 0
 
   const completeSession = async () => {
     if (!session) return null
@@ -271,12 +273,18 @@ export default function LearnPage() {
     if (!session || !current || submitting) return
     const itemId = current.item_id
     if ((answeredMap[itemId] ?? false) === true) return
+    if (answerIsEmpty) return
 
     setSubmitting(true)
     setFeedback(null)
     try {
       const latency = questionStartAt ? Date.now() - questionStartAt : undefined
-      const payload = { session_id: session.session_id, item_id: itemId, answer, latency_ms: latency }
+      const payload = {
+        session_id: session.session_id,
+        item_id: itemId,
+        answer: trimmedAnswer,
+        latency_ms: latency,
+      }
       const res = await fetch("/api/attempts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -433,7 +441,7 @@ export default function LearnPage() {
                       <Button variant="secondary" onClick={handleSkip} disabled={submitting}>
                         건너뛰기
                       </Button>
-                      <Button onClick={handleSubmitOne} disabled={submitting}>
+                      <Button onClick={handleSubmitOne} disabled={submitting || answerIsEmpty}>
                         {submitting ? "제출 중..." : "제출하기"}
                       </Button>
                     </div>
