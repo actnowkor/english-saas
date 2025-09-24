@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { LoadingState } from "@/components/loading-spinner"
 import { useDashboard } from "@/hooks/use-dashboard"
 import { LevelCard } from "@/components/dashboard/level-card"
 import { MetricCard } from "@/components/dashboard/metric-card"
@@ -133,6 +134,13 @@ export default function DashboardPage() {
       <ProtectedRoute>
         <AppLayout>
           <div className="space-y-6">
+            <LoadingState
+              size="compact"
+              align="start"
+              title="대시보드를 준비하는 중이에요"
+              message="최근 학습 기록과 추천 정보를 불러오고 있습니다."
+              className="rounded-lg border border-dashed border-primary/20 bg-muted/20 px-6"
+            />
             <div>
               <Skeleton className="h-8 w-48 mb-2" />
               <Skeleton className="h-4 w-96" />

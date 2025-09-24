@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
+import { LoadingState } from "@/components/loading-spinner"
 import { StartLearningCard } from "@/components/dashboard/start-learning-card"
 import { SessionStartAlert } from "@/components/learn/session-start-alert"
 import { useToast } from "@/hooks/use-toast"
@@ -280,7 +281,13 @@ export default function LearnPage() {
     <ProtectedRoute>
       <AppLayout>
         <div className="max-w-3xl mx-auto p-4 space-y-6">
-          {loading && <div>세션 불러오는 중...</div>}
+          {loading && (
+            <LoadingState
+              size="compact"
+              title="학습 세션을 준비하고 있어요"
+              message="조금만 기다려 주세요. 여러분의 학습 데이터를 가져오는 중입니다."
+            />
+          )}
 
           {!loading && (!sid || !session || (session.items?.length ?? 0) === 0) && (
             <div className="max-w-md mx-auto">

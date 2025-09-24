@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
+import { LoadingState } from "@/components/loading-spinner"
 
 type ResultItem = {
   item_id: string
@@ -59,7 +60,12 @@ export default function ResultPage() {
             <h1 className="text-xl font-bold">학습 결과 요약</h1>
           </div>
 
-          {loading && <div>불러오는 중…</div>}
+          {loading && (
+            <LoadingState
+              title="결과를 준비하는 중이에요"
+              message="조금만 기다리시면 이번 학습의 요약을 정리해 드릴게요."
+            />
+          )}
           {!loading && (
             <>
               <Card>
@@ -101,3 +107,6 @@ export default function ResultPage() {
     </ProtectedRoute>
   )
 }
+// ResultPage: 세션 결과 요약과 대시보드 복귀 버튼을 보여준다.
+
+// 사용법: 학습 종료 후 /result?sid=세션ID 경로에서 접근한다.
