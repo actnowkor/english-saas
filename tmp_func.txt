@@ -260,6 +260,7 @@ begin
       from lvl cross join fill_total ft
     ) s
   ),
+
   fill_candidates as (
     select id, level, min(priority) as priority
     from (
@@ -290,6 +291,7 @@ begin
     ) ranked
     join fill_targets ft on ft.lvl = ranked.level
     where ranked.lvl_rank <= ft.target
+
   )
   select id
   from (
