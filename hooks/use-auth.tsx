@@ -26,28 +26,28 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-async function fetchOwnProfile(): Promise<ProfileRow | null> {
+async function fetchOwnProfile(): Promise<(ProfileRow & { onboarded_at?: string | null }) | null> {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
   if (!uid) return null
 
   const { data, error } = await supabase
     .from("users")
-    .select("id, display_name, current_level, onboarding_at")
+    .select("id, display_name, current_level, onboarded_at")
     .eq("id", uid)
     .limit(1)
     .maybeSingle()
 
   if (error) {
     console.warn("[useAuth] failed to fetch profile", error.message)
-    return { id: uid, display_name: null, current_level: null, onboarding_at: null }
+    return { id: uid, display_name: null, current_level: null, onboarded_at: null }
   }
 
   if (!data) {
-    return { id: uid, display_name: null, current_level: null, onboarding_at: null }
+    return { id: uid, display_name: null, current_level: null, onboarded_at: null }
   }
 
-  return data as ProfileRow
+  return data as ProfileRow & { onboarded_at?: string | null }
 }
 // fetchOwnProfile: 현재 로그인 사용자의 프로필 정보를 가져온다.
 
@@ -151,8 +151,8 @@ export function AuthProvider({
   const updateUser = (updates: Partial<AppUser>) => {
     if (!user) return
     const merged = { ...user, ...updates }
-    if ("current_level" in updates) {
-      merged.isFirstTime = (updates.current_level ?? null) === null
+    if ("current_level" in updates || "onboarded_at" in updates) {
+      merged.isFirstTime = (merged.current_level ?? null) === null || !merged.onboarded_at
     }
     setUser(merged)
   }

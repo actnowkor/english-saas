@@ -14,7 +14,7 @@ export type AppUser = {
   role: AppUserRole
   image?: string
   current_level: number | null
-  onboarding_at: string | null
+  onboarded_at: string | null
   isFirstTime: boolean
 }
 
@@ -22,7 +22,7 @@ export type ProfileRow = {
   id: string
   display_name?: string | null
   current_level?: number | null
-  onboarding_at?: string | null
+  onboarded_at?: string | null
 }
 
 export function buildAppUser(params: {
@@ -48,7 +48,8 @@ export function buildAppUser(params: {
 
   const preferredName = (profile?.display_name && String(profile.display_name).trim()) || fullName
   const currentLevel = profile?.current_level ?? null
-  const onboardingAt = profile?.onboarding_at ?? null
+  const onboardedAt = profile?.onboarded_at ?? null
+  const isFirstTime = currentLevel === null || !onboardedAt
 
   return {
     id: supaUser.id,
@@ -57,8 +58,8 @@ export function buildAppUser(params: {
     role: "user",
     image: avatar,
     current_level: currentLevel,
-    onboarding_at: onboardingAt,
-    isFirstTime: currentLevel === null,
+    onboarded_at: onboardedAt,
+    isFirstTime,
   }
 }
 // buildAppUser: Supabase 사용자 정보를 앱 공용 사용자 모델로 매핑한다.

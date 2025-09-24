@@ -45,13 +45,13 @@ async function resolveInitialUser(): Promise<AppUser | null> {
 
     const { data, error } = await supabase
       .from("users")
-      .select("id, display_name, current_level, onboarding_at")
+      .select("id, display_name, current_level, onboarded_at")
       .eq("id", supaUser.id)
       .limit(1)
       .maybeSingle()
 
     const profile: ProfileRow | null = error || !data
-      ? { id: supaUser.id, display_name: null, current_level: null, onboarding_at: null }
+      ? { id: supaUser.id, display_name: null, current_level: null, onboarded_at: null }
       : (data as ProfileRow)
 
     return buildAppUser({ supaUser, profile })
