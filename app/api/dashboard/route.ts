@@ -57,6 +57,15 @@ const EMPTY_ACCESS: AccessSummary = {
   can_start: true,
   reason: "OK_WITH_FREE",
 }
+
+function normalizePolicyRate(value: unknown) {
+  if (value == null) return null
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return numeric > 1 ? numeric / 100 : numeric
+}
+// normalizePolicyRate: 정책 백분율 값을 0~1 범위 비율로 변환한다.
+
 function toYMD(d: Date) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, "0")
@@ -209,14 +218,14 @@ export async function GET() {
         .maybeSingle()
       if (policyError) throw policyError
       if (policyRow) {
+        const minCorrectRate = normalizePolicyRate(policyRow.min_correct_rate)
+        const minBoxRatio = normalizePolicyRate(policyRow.min_box_level_ratio)
         levelPolicy = {
           level: Number(policyRow.level ?? computedTarget),
           min_total_attempts:
             policyRow.min_total_attempts != null ? Number(policyRow.min_total_attempts) : null,
-          min_correct_rate:
-            policyRow.min_correct_rate != null ? Number(policyRow.min_correct_rate) : null,
-          min_box_level_ratio:
-            policyRow.min_box_level_ratio != null ? Number(policyRow.min_box_level_ratio) : null,
+          min_correct_rate: minCorrectRate,
+          min_box_level_ratio: minBoxRatio,
         }
       }
     } catch (policyError) {
