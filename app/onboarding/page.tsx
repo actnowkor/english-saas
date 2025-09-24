@@ -1,7 +1,8 @@
 // 경로: app/onboarding/page.tsx
-// 역할: 온보딩 레벨 선택 UI를 제공하고 완료 시 사용자 상태를 갱신한다.
-// 의존관계: @/components/auth/protected-route, @/hooks/use-auth, @/hooks/use-toast, @/lib/i18n
-// 포함 함수: OnboardingPage()
+
+// 역할: 온보딩 레벨 선택 UI를 제공하고 선택 정보를 서버에 저장한다.
+// 의존관계: next/navigation, @/hooks/use-auth, @/hooks/use-toast, @/lib/i18n, @/components/ui/*
+// 포함 함수: toIntLevel(), OnboardingPage()
 
 "use client"
 
@@ -36,7 +37,8 @@ function toIntLevel(level: string): number | null {
   const n = Number(m[1])
   return n >= 1 && n <= 9 ? n : null
 }
-// toIntLevel: 레벨 문자열을 정수 레벨 값으로 변환한다.
+
+// toIntLevel: 레벨 문자열을 서버 저장용 정수로 변환한다.
 
 export default function OnboardingPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>("")
@@ -70,16 +72,17 @@ export default function OnboardingPage() {
       // 3) 결과 분기
       if (res.ok) {
         // 최초 성공(200)
-        const nowIso = new Date().toISOString()
+
+        const onboardedAt = new Date().toISOString()
+        updateUser({ current_level: lvInt, onboarded_at: onboardedAt })
+
         toast({
           title: t("onboarding.saved"),
           description: `${selectedLevel} ${t("onboarding.level_set_confirm") ?? "레벨로 설정되었습니다"}`,
         })
-        updateUser({
-          current_level: lvInt,
-          onboarded_at: nowIso,
-        })
-        router.push("/dashboard")
+
+        router.replace("/dashboard")
+
         return
       }
 
@@ -111,7 +114,9 @@ export default function OnboardingPage() {
       setIsSaving(false)
     }
   }
-  // handleSave: 온보딩 완료 요청을 보내고 사용자 상태를 갱신한다.
+
+  // handleSave: 레벨 저장 API 호출과 후속 UI 상태를 관리한다.
+
 
   return (
     <ProtectedRoute>
@@ -148,3 +153,4 @@ export default function OnboardingPage() {
     </ProtectedRoute>
   )
 }
+// OnboardingPage: 온보딩 레벨 선택과 저장을 처리하는 페이지 컴포넌트다.
