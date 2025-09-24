@@ -1,15 +1,26 @@
 // 경로: components/auth/protected-route.tsx
 // 역할: 인증 상태에 따라 접근 권한을 제어하는 보호 라우트를 제공한다.
 // 의존관계: @/hooks/use-auth, next/navigation, @/components/ui/skeleton
-// 포함 함수: ProtectedRoute()
+// 포함 함수: ProtectedRoute(), checkNeedsOnboarding()
 "use client"
 
 import type React from "react"
 
+import type { AppUser } from "@/lib/auth/app-user"
 import { useAuth } from "@/hooks/use-auth"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+
+function checkNeedsOnboarding(targetUser: AppUser): boolean {
+  const onboardedAt =
+    (targetUser as AppUser & { onboarded_at?: string | null }).onboarded_at ??
+    targetUser.onboarding_at ??
+    null
+
+  return targetUser.current_level === null || !onboardedAt
+}
+// checkNeedsOnboarding: 사용자 온보딩 필요 여부를 계산한다.
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -19,6 +30,17 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+
+  const needsOnboarding = useMemo(() => {
+    if (!user) return false
+    return checkNeedsOnboarding(user)
+  }, [user])
+
+  const isOnboardingExceptionPath = useMemo(() => {
+    if (!pathname) return false
+    return pathname.startsWith("/onboarding") || pathname.startsWith("/auth")
+  }, [pathname])
 
   useEffect(() => {
     if (loading) return
@@ -42,9 +64,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       return
     }
 
-    // 온보딩 여부는 서버/라우트 레벨에서 처리
-    // 여기서는 로그인/권한만 확인
-  }, [user, loading, requireAdmin, router])
+    const needsOnboarding = checkNeedsOnboarding(user)
+
+    // 온보딩 리디렉션 예외: 온보딩 진행 화면(/onboarding)과 인증/로그아웃 경로(/auth/*)
+    if (needsOnboarding && !isOnboardingExceptionPath) {
+      router.replace("/onboarding")
+    }
+  }, [user, loading, requireAdmin, router, pathname, isOnboardingExceptionPath])
 
   if (loading) {
     return (
@@ -62,6 +88,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (requireAdmin && user.role !== "admin") {
+    return null
+  }
+
+  if (needsOnboarding && !isOnboardingExceptionPath) {
     return null
   }
 

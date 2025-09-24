@@ -69,8 +69,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // ⚠️ 컬럼명 주의: 프로젝트에서 실제 사용하는 컬럼이 onboarding_at 인지 onboarded_at 인지 확인하세요.
-    // 아래는 onboarded_at 기준으로 작성했습니다.
+    // ⚠️ 컬럼명 주의: 현재 프로젝트에서는 onboarded_at 컬럼을 사용합니다.
     // 4) DB 업데이트 (최초 1회만)
     const { data, error } = await supabase
       .from("users")
