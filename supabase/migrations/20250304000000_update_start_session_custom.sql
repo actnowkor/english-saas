@@ -152,9 +152,14 @@ begin
   ),
 
   user_seen as (
-    select distinct i.id as item_id
-    from items i
-    join attempts a on a.item_id = i.id
+    select distinct si.item_id
+    from session_items si
+    join sessions s on s.id = si.session_id
+    where s.user_id = p_user_id
+    union
+    select distinct a.item_id
+    from attempts a
+
     join sessions s on s.id = a.session_id
     where s.user_id = p_user_id
   ),
@@ -245,7 +250,7 @@ begin
   picked_dedup as (
     select distinct id from picked
   ),
-  
+
   fill_total as (
     select greatest(v_count - (select count(*) from picked_dedup), 0) as total
   ),
@@ -262,20 +267,34 @@ begin
       from lvl cross join fill_total ft
     ) s
   ),
+
+  fill_candidates as (
+    select id, level, min(priority) as priority
+    from (
+      select ni.id, ni.level, 1 as priority
+      from new_items ni
+      union all
+      select ri.id, ri.level, 2 as priority
+      from review_items ri
+      union all
+      select wi.id, wi.level, 3 as priority
+      from weak_items wi
+    ) raw
+    group by id, level
+  ),
   fillup as (
     select ranked.id
     from (
-      select i.id,
-             i.level,
+      select fc.id,
+             fc.level,
              row_number() over (
-               partition by i.level
-               order by random()
+               partition by fc.level
+               order by fc.priority, random()
              ) as lvl_rank
-      from items i
-      left join picked_dedup pd on pd.id = i.id
-      join lvl on lvl.lvl = i.level
+      from fill_candidates fc
+      join lvl on lvl.lvl = fc.level
+      left join picked_dedup pd on pd.id = fc.id
       where pd.id is null
-        and i.status in ('draft', 'approved')
     ) ranked
     join fill_targets ft on ft.lvl = ranked.level
     where ranked.lvl_rank <= ft.target
