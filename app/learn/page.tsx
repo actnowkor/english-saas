@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { LoadingState } from "@/components/loading-spinner"
 import { StartLearningCard } from "@/components/dashboard/start-learning-card"
 import { SessionStartAlert } from "@/components/learn/session-start-alert"
 import { useToast } from "@/hooks/use-toast"
@@ -229,8 +228,8 @@ export default function LearnPage() {
     }
   }, [current?.item_id])
 
-    const correctAnswer = current?.snapshot?.answer_en ?? ""
-    const showAnswerLine = Boolean(correctAnswer) && !((feedback?.text ?? "").includes(correctAnswer))
+  const correctAnswer = current?.snapshot?.answer_en ?? ""
+  const showAnswerLine = Boolean(correctAnswer) && !((feedback?.text ?? "").includes(correctAnswer))
 
   const completeSession = async () => {
     if (!session) return null
@@ -352,7 +351,8 @@ export default function LearnPage() {
     return `${idx + 1} / ${session.items.length}`
   }, [session, idx])
 
-  const showLoading = loading
+  const showStartSkeleton = loading && !sid
+  const showSessionSkeleton = loading && Boolean(sid)
   const showStartCard = !loading && (!sid || !session || (session.items?.length ?? 0) === 0)
   const showSession = !loading && Boolean(session && current)
 
@@ -361,22 +361,17 @@ export default function LearnPage() {
       <AppLayout>
 
         <div className="max-w-3xl mx-auto space-y-6 p-4">
-          {showLoading && (
-            <div className="space-y-4">
-              <LoadingState
-                size="compact"
-                title="학습 세션을 준비하고 있어요"
-                message="조금만 기다려 주세요. 여러분의 학습 데이터를 가져오는 중입니다."
-              />
-              {sid ? (
-                <LearnSessionCardSkeleton />
-              ) : (
-                <div className="max-w-md mx-auto">
-                  <StartLearningPlaceholderSkeleton />
-                </div>
-              )}
+          {showStartSkeleton && (
+            <div className="max-w-md mx-auto">
+              <StartLearningPlaceholderSkeleton />
             </div>
+          )}
 
+          {showSessionSkeleton && (
+            <div className="space-y-4">
+              <Skeleton className="h-16 w-full" />
+              <LearnSessionCardSkeleton />
+            </div>
           )}
 
           {showStartCard && (
