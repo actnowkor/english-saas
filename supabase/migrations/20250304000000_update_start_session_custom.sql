@@ -113,6 +113,7 @@ begin
     from jsonb_each(v_applied_level_mix)
     order by 1
   ),
+
   review_targets as (
     select lvl,
            base + case
@@ -149,6 +150,7 @@ begin
       from lvl
     ) s
   ),
+
   user_seen as (
     select distinct i.id as item_id
     from items i
@@ -182,6 +184,7 @@ begin
       and us.item_id is null
   ),
   pick_review as (
+
     select ranked.id
     from (
       select ri.id,
@@ -230,6 +233,7 @@ begin
       where nt.target > 0
     ) ranked
     where ranked.lvl_rank <= ranked.target
+
   ),
   picked as (
     select id from pick_review
@@ -241,6 +245,7 @@ begin
   picked_dedup as (
     select distinct id from picked
   ),
+  
   fill_total as (
     select greatest(v_count - (select count(*) from picked_dedup), 0) as total
   ),
@@ -274,6 +279,7 @@ begin
     ) ranked
     join fill_targets ft on ft.lvl = ranked.level
     where ranked.lvl_rank <= ft.target
+
   )
   select id
   from (

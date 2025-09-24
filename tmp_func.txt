@@ -257,6 +257,7 @@ begin
     ) s
   ),
   fillup as (
+
     select ranked.id
     from (
       select i.id,
@@ -273,6 +274,7 @@ begin
     ) ranked
     join fill_targets ft on ft.lvl = ranked.level
     where ranked.lvl_rank <= ft.target
+
   )
   select id
   from (
