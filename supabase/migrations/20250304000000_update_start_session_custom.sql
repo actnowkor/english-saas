@@ -113,6 +113,44 @@ begin
     from jsonb_each(v_applied_level_mix)
     order by 1
   ),
+
+  review_targets as (
+    select lvl,
+           base + case
+             when row_number() over (order by frac desc, lvl) <= (tgt_review - sum(base) over ())
+             then 1 else 0 end as target
+    from (
+      select lvl,
+             floor((w * tgt_review))::int as base,
+             ((w * tgt_review) - floor(w * tgt_review)) as frac
+      from lvl
+    ) s
+  ),
+  weak_targets as (
+    select lvl,
+           base + case
+             when row_number() over (order by frac desc, lvl) <= (tgt_weak - sum(base) over ())
+             then 1 else 0 end as target
+    from (
+      select lvl,
+             floor((w * tgt_weak))::int as base,
+             ((w * tgt_weak) - floor(w * tgt_weak)) as frac
+      from lvl
+    ) s
+  ),
+  new_targets as (
+    select lvl,
+           base + case
+             when row_number() over (order by frac desc, lvl) <= (tgt_new - sum(base) over ())
+             then 1 else 0 end as target
+    from (
+      select lvl,
+             floor((w * tgt_new))::int as base,
+             ((w * tgt_new) - floor(w * tgt_new)) as frac
+      from lvl
+    ) s
+  ),
+
   user_seen as (
     select distinct i.id as item_id
     from items i
@@ -146,27 +184,56 @@ begin
       and us.item_id is null
   ),
   pick_review as (
-    select ri.id
-    from review_items ri
-    join lvl on lvl.lvl = ri.level
-    order by (case when v_review_due_first then ri.is_due else 0 end) desc,
-             (case when v_review_due_first then ri.due_at else ri.created_at end) asc
-    limit tgt_review
+
+    select ranked.id
+    from (
+      select ri.id,
+             ri.level,
+             row_number() over (
+               partition by ri.level
+               order by (case when v_review_due_first then ri.is_due else 0 end) desc,
+                        (case when v_review_due_first then ri.due_at else ri.created_at end) asc
+             ) as lvl_rank,
+             rt.target
+      from review_items ri
+      join review_targets rt on rt.lvl = ri.level
+      where rt.target > 0
+    ) ranked
+    where ranked.lvl_rank <= ranked.target
   ),
   pick_weak as (
-    select wi.id
-    from weak_items wi
-    join lvl on lvl.lvl = wi.level
-    where (not v_weak_requires_history) or wi.maxw > 0
-    order by wi.wscore desc, wi.maxw desc
-    limit tgt_weak
+    select ranked.id
+    from (
+      select wi.id,
+             wi.level,
+             row_number() over (
+               partition by wi.level
+               order by wi.wscore desc, wi.maxw desc
+             ) as lvl_rank,
+             wt.target
+      from weak_items wi
+      join weak_targets wt on wt.lvl = wi.level
+      where wt.target > 0
+        and ((not v_weak_requires_history) or wi.maxw > 0)
+    ) ranked
+    where ranked.lvl_rank <= ranked.target
   ),
   pick_new as (
-    select ni.id
-    from new_items ni
-    join lvl on lvl.lvl = ni.level
-    order by ni.created_at desc
-    limit tgt_new
+    select ranked.id
+    from (
+      select ni.id,
+             ni.level,
+             row_number() over (
+               partition by ni.level
+               order by random()
+             ) as lvl_rank,
+             nt.target
+      from new_items ni
+      join new_targets nt on nt.lvl = ni.level
+      where nt.target > 0
+    ) ranked
+    where ranked.lvl_rank <= ranked.target
+
   ),
   picked as (
     select id from pick_review
@@ -178,15 +245,41 @@ begin
   picked_dedup as (
     select distinct id from picked
   ),
+  
+  fill_total as (
+    select greatest(v_count - (select count(*) from picked_dedup), 0) as total
+  ),
+  fill_targets as (
+    select lvl,
+           base + case
+             when row_number() over (order by frac desc, lvl) <= (s.total - sum(base) over ())
+             then 1 else 0 end as target
+    from (
+      select lvl,
+             floor((w * ft.total))::int as base,
+             ((w * ft.total) - floor(w * ft.total)) as frac,
+             ft.total
+      from lvl cross join fill_total ft
+    ) s
+  ),
   fillup as (
-    select i.id
-    from items i
-    left join picked_dedup pd on pd.id = i.id
-    join lvl on lvl.lvl = i.level
-    where pd.id is null
-      and i.status in ('draft', 'approved')
-    order by i.created_at desc
-    limit greatest(v_count - (select count(*) from picked_dedup), 0)
+    select ranked.id
+    from (
+      select i.id,
+             i.level,
+             row_number() over (
+               partition by i.level
+               order by random()
+             ) as lvl_rank
+      from items i
+      left join picked_dedup pd on pd.id = i.id
+      join lvl on lvl.lvl = i.level
+      where pd.id is null
+        and i.status in ('draft', 'approved')
+    ) ranked
+    join fill_targets ft on ft.lvl = ranked.level
+    where ranked.lvl_rank <= ft.target
+
   )
   select id
   from (
