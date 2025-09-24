@@ -41,7 +41,7 @@ export function SessionStartAlert({
         <Gauge className="h-4 w-4" /> {levelLabel} 난이도로 학습 중
       </AlertTitle>
       <AlertDescription>
-        최근 정답률 {recentRate}, 안정화 개념 비중 {stableRatio}, 낮은 박스 개념 {lowBox} 기준으로 학습을 이어갑니다.
+        최근 정답률 {recentRate}, 익숙한 개념 비중 {stableRatio}, 학습중인 개념 {lowBox} 정보를 기반으로 편안한 학습을 준비했어요.
       </AlertDescription>
     </Alert>
   )

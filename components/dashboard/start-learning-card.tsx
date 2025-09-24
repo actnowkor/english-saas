@@ -111,25 +111,6 @@ export function StartLearningCard({
     ? "이어서 학습"
     : "학습 시작"
 
-  const recentRate =
-    typeof levelStats?.recent_correct_rate === "number"
-      ? Math.round(levelStats.recent_correct_rate * 100)
-      : null
-  const stableRatio =
-    typeof levelStats?.stable_concept_ratio === "number"
-      ? Math.round(levelStats.stable_concept_ratio * 100)
-      : null
-  const stableCount =
-    typeof levelStats?.stable_concept_count === "number"
-      ? levelStats.stable_concept_count
-      : null
-  const lowBox =
-    typeof levelStats?.low_box_concept_count === "number"
-      ? levelStats.low_box_concept_count
-      : null
-  const totalAttempts =
-    typeof levelStats?.total_attempts === "number" ? levelStats.total_attempts : null
-
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -258,17 +239,8 @@ export function StartLearningCard({
         {levelStats ? (
           <Alert>
             <AlertDescription>
-              최근 학습 지표를 확인했어요. 현재 레벨 {typeof currentLevel === "number" ? `L${currentLevel}` : "-"} 기준
-              다음 수치를 참고하세요.
-              <span className="mt-1 block text-xs text-muted-foreground space-y-0.5">
-                <span className="block">최근 정답률 {recentRate != null ? `${recentRate}%` : "-"}</span>
-                <span className="block">
-                  안정화 개념 {stableCount != null ? stableCount.toLocaleString() : "-"}
-                  {stableRatio != null ? ` (${stableRatio}% 비중)` : ""}
-                </span>
-                <span className="block">낮은 박스 개념 {lowBox != null ? lowBox.toLocaleString() : "-"}</span>
-                <span className="block">누적 시도 {totalAttempts != null ? totalAttempts.toLocaleString() : "-"}</span>
-              </span>
+              최근 학습 데이터를 반영해 오늘 학습을 준비했어요. {typeof currentLevel === "number" ? `L${currentLevel}` : "기본"}
+              난이도로 편안하게 시작해 보세요.
             </AlertDescription>
           </Alert>
         ) : (
