@@ -1,3 +1,8 @@
+-- 경로: tmp
+-- 역할: Supabase 공개 스키마 함수와 정책 로직 정의를 모은 SQL 스크립트
+-- 의존관계: public.users, public.sessions, public.policy_level_up 등 관련 테이블
+-- 포함 함수: get_session_result(), get_difficulty_adjustment(), evaluate_user_level_progress(), auto_level_up(), start_session_custom()
+
 create or replace function public.get_session_result(p_session_id uuid)
 returns jsonb
 language plpgsql
@@ -5,9 +10,9 @@ security definer
 set search_path = public
 as $$
 declare
-  _uid uuid := auth.uid();            -- ?�재 로그?�한 ?�용??
-  _own boolean;                       -- ?�션 ?�유 ?��?
-  _result jsonb;                      -- 최종 반환 JSON
+  _uid uuid := auth.uid();            -- ?„ìž¬ ë¡œê·¸?¸í•œ ?¬ìš©??
+  _own boolean;                       -- ?¸ì…˜ ?Œìœ  ?¬ë?
+  _result jsonb;                      -- ìµœì¢… ë°˜í™˜ JSON
 begin
   select exists (
     select 1
@@ -62,12 +67,12 @@ begin
     select attempt_id, label, feedback_short, minimal_rewrite, error_tags
     from public.grades
   ),
-  ck as (                             -- ?�션 ???�장??concept_key 목록
+  ck as (                             -- ?¸ì…˜ ???±ìž¥??concept_key ëª©ë¡
     select distinct si.snapshot_json->>'concept_key' as concept_key
     from si
     where si.snapshot_json ? 'concept_key'
   ),
-  cm as (                             -- 개념?�한글�?매핑
+  cm as (                             -- ê°œë…?’í•œê¸€ëª?ë§¤í•‘
     select c.concept_key, c.display_name, coalesce(c.description, '') as description
     from public.concepts c
     join ck on ck.concept_key = c.concept_key
@@ -81,7 +86,7 @@ begin
     'session_id', p_session_id,
     'started_at', to_char((select started_at from meta), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
     'ended_at',   to_char((select ended_at   from meta), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-    'total',      (select count(*) from si),                          -- ??count(*) �?교체
+    'total',      (select count(*) from si),                          -- ??count(*) ë¡?êµì²´
     'correct',    coalesce((
                      select count(*)
                      from la
@@ -142,7 +147,7 @@ declare
   _uid uuid := auth.uid();
   _own boolean;
 begin
-  -- 0) ?�유�?검�? ?�당 attempt가 ?�재 ?�용???�유 ?�션?��? ?�인
+  -- 0) ?Œìœ ê¶?ê²€ì¦? ?´ë‹¹ attemptê°€ ?„ìž¬ ?¬ìš©???Œìœ  ?¸ì…˜?¸ì? ?•ì¸
   select exists (
     select 1
     from public.attempts a
@@ -155,7 +160,7 @@ begin
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;
 
-  -- 1) upsert: created_at?� 최초 ?�입�? ?�데?�트 ?�에??보존
+  -- 1) upsert: created_at?€ ìµœì´ˆ ?½ìž…ë§? ?…ë°?´íŠ¸ ?œì—??ë³´ì¡´
   insert into public.grades (
     attempt_id,
     label,
@@ -205,29 +210,29 @@ $$ language plpgsql;
 
 
 /*
-목적
+ëª©ì 
 
-?�션 ??채점 결과(grade)�?바탕?�로 ?�이?�너 박스�?갱신
-?�어/�?word/phrase) ??user_item_status
-문장(sentence) ??user_concept_status
-같�? 문항???�중 ?�도가 ?�을 경우 "마�?�?가??최근) 채점???�도"�?반영
-?�???�정 규칙
+?¸ì…˜ ??ì±„ì  ê²°ê³¼(grade)ë¥?ë°”íƒ•?¼ë¡œ ?¼ì´?¸ë„ˆ ë°•ìŠ¤ë¥?ê°±ì‹ 
+?¨ì–´/êµ?word/phrase) ??user_item_status
+ë¬¸ìž¥(sentence) ??user_concept_status
+ê°™ì? ë¬¸í•­???¤ì¤‘ ?œë„ê°€ ?ˆì„ ê²½ìš° "ë§ˆì?ë§?ê°€??ìµœê·¼) ì±„ì ???œë„"ë§?ë°˜ì˜
+?€???ì • ê·œì¹™
 
-session_items.snapshot_json->>'type' (?�문??
-items.type::text (?�문??
-concept_key ?�무�?추정 (?�으�?sentence, ?�으�?word)
-간격????
+session_items.snapshot_json->>'type' (?Œë¬¸??
+items.type::text (?Œë¬¸??
+concept_key ? ë¬´ë¡?ì¶”ì • (?ˆìœ¼ë©?sentence, ?†ìœ¼ë©?word)
+ê°„ê²©????
 box 1: 0d, 2: 1d, 3: 3d, 4: 7d, 5: 14d
 
-?�제
+?„ì œ
 
 user_item_status(user_id, item_id) unique
 
 user_concept_status(user_id, concept_key) unique
 
-attempts:grades = 1:1?�며, grades.label ??('correct','variant','near_miss','wrong')
+attempts:grades = 1:1?´ë©°, grades.label ??('correct','variant','near_miss','wrong')
 
-�??�수??SECURITY DEFINER?�며, ?��??�서 ?�요???�이블에 ?�??RLS ?�용 ?�는 ?�회�?보장?�야 ??
+ë³??¨ìˆ˜??SECURITY DEFINER?´ë©°, ?´ë??ì„œ ?„ìš”???Œì´ë¸”ì— ?€??RLS ?ˆìš© ?ëŠ” ?°íšŒë¥?ë³´ìž¥?´ì•¼ ??
 */
 
 create or replace function public.update_srs(p_session_id uuid)
@@ -252,7 +257,7 @@ declare
 
   v_item_type text;
 begin
-  -- �?문항(item)�?가??최근 1�?attempt(채점 ?�료??것만)�??�별
+  -- ê°?ë¬¸í•­(item)ë³?ê°€??ìµœê·¼ 1ê°?attempt(ì±„ì  ?„ë£Œ??ê²ƒë§Œ)ë§?? ë³„
   for rec in
     with last_per_item as (
       select distinct on (a.item_id)
@@ -280,14 +285,14 @@ begin
   loop
     v_is_correct := (rec.label in ('correct','variant'));
 
-    -- item ?�??구분: concept_key 존재 ??sentence, ?�니�?word/phrase
+    -- item ?€??êµ¬ë¶„: concept_key ì¡´ìž¬ ??sentence, ?„ë‹ˆë©?word/phrase
     if rec.concept_key is not null then
       v_item_type := 'sentence';
     else
       v_item_type := 'word';
     end if;
 
-    -- 1) ?�어/�?phrase/word): user_item_status ?�데?�트
+    -- 1) ?¨ì–´/êµ?phrase/word): user_item_status ?…ë°?´íŠ¸
     if v_item_type in ('word','phrase') then
       select box_level into v_prev_item
       from public.user_item_status
@@ -330,7 +335,7 @@ begin
             last_session_id = excluded.last_session_id;
     end if;
 
-    -- 2) 문장(sentence): user_concept_status ?�데?�트
+    -- 2) ë¬¸ìž¥(sentence): user_concept_status ?…ë°?´íŠ¸
     if v_item_type = 'sentence' and rec.concept_key is not null then
       select box_level into v_prev_concept
       from public.user_concept_status
@@ -399,15 +404,15 @@ end;
 $$ language plpgsql;
 
 -----------------------------
--- ?�일/??��: DB ?�수 / 출제+?�션?�성+?�냅???�결
--- ?�존: policy_level_mix, policy_type_weights, policy_thresholds, users, items,
+-- ?Œì¼/??• : DB ?¨ìˆ˜ / ì¶œì œ+?¸ì…˜?ì„±+?¤ëƒ…???™ê²°
+-- ?˜ì¡´: policy_level_mix, policy_type_weights, policy_thresholds, users, items,
 --       attempts, user_item_status, user_concept_status, sessions, session_items
--- 주의: SECURITY DEFINER + search_path 고정
+-- ì£¼ì˜: SECURITY DEFINER + search_path ê³ ì •
 
 create or replace function public.start_session_custom(
   p_user_id uuid,
   p_type session_type,        -- 'new_only' | 'mix' | 'review_only' | 'weak_focus'
-  p_count int default null    -- null?�면 ?�책??default_session_size ?�용
+  p_count int default null    -- null?´ë©´ ?•ì±…??default_session_size ?¬ìš©
 )
 returns uuid
 language plpgsql
@@ -423,7 +428,7 @@ declare
   v_review_due_first boolean;
   v_weak_requires_history boolean;
 
-  v_current_level int;              -- users.current_level (?�수 ?�벨)
+  v_current_level int;              -- users.current_level (?•ìˆ˜ ?ˆë²¨)
   v_level_mix jsonb;                -- {"1":0.8,"2":0.2}
   v_type_weights jsonb;             -- {"review":0.5,"new":0.3,"weak":0.2}
 
@@ -431,13 +436,13 @@ declare
   v_effective_type session_type;
   v_underfilled boolean := false;
 
-  -- 목표 ?�량
+  -- ëª©í‘œ ?˜ëŸ‰
   tgt_review int := 0;
   tgt_new    int := 0;
   tgt_weak   int := 0;
 
 begin
-  -- 0) ?�책 로드
+  -- 0) ?•ì±… ë¡œë“œ
   select default_session_size,
          per_level_min_attempts_for_review,
          force_new_when_below_threshold,
@@ -450,7 +455,7 @@ begin
 
   v_count := coalesce(p_count, v_default_count);
 
-  -- 1) ?�용???�재 ?�벨 & ?�벨 믹스
+  -- 1) ?¬ìš©???„ìž¬ ?ˆë²¨ & ?ˆë²¨ ë¯¹ìŠ¤
   select coalesce(u.current_level, 1) into v_current_level
   from users u where u.id = p_user_id;
 
@@ -462,7 +467,7 @@ begin
     v_level_mix := jsonb_build_object(v_current_level::text, 1.0);
   end if;
 
-  -- 2) ?�?�별 비율
+  -- 2) ?€?…ë³„ ë¹„ìœ¨
   select ptw.weights into v_type_weights
   from policy_type_weights ptw
   where ptw.session_type = p_type;
@@ -471,21 +476,21 @@ begin
     v_type_weights := jsonb_build_object('review',0.5,'new',0.3,'weak',0.2);
   end if;
 
-  -- 3) ?�벨�??�적 ?�?�수 (?�냅??level ?�수 기�?)
+  -- 3) ?ˆë²¨ë³??„ì  ?€?´ìˆ˜ (?¤ëƒ…??level ?•ìˆ˜ ê¸°ì?)
   select coalesce(count(*),0) into v_level_attempts
   from attempts a
   join session_items si on si.session_id = a.session_id and si.item_id = a.item_id
   where a.session_id in (select id from sessions where user_id = p_user_id)
     and (si.snapshot_json->>'level')::int = v_current_level;
 
-  -- 4) ?�계 가??
+  -- 4) ?„ê³„ ê°€??
   if v_force_new and v_level_attempts < v_min_attempts then
     v_effective_type := 'new_only';
   else
     v_effective_type := p_type;
   end if;
 
-  -- 5) ?�?�별 목표 ?�량 ?�출
+  -- 5) ?€?…ë³„ ëª©í‘œ ?˜ëŸ‰ ?°ì¶œ
   if v_effective_type = 'new_only' then
     tgt_new := v_count;
   else
@@ -498,15 +503,15 @@ begin
       elsif v_effective_type = 'weak_focus' then
         tgt_weak := tgt_weak + 1;
       else
-        tgt_review := tgt_review + 1; -- mix???�여??review ?�선 보충
+        tgt_review := tgt_review + 1; -- mix???”ì—¬??review ?°ì„  ë³´ì¶©
       end if;
     end loop;
   end if;
 
   -- =========================
-  -- ?�보 ?� 계산 ???�시?�이블에 최종 ID ?�??
+  -- ?„ë³´ ?€ ê³„ì‚° ???„ì‹œ?Œì´ë¸”ì— ìµœì¢… ID ?€??
   -- =========================
-  -- (?�션???�나�??�동 ?�롭?�도�?on commit drop)
+  -- (?¸ì…˜???ë‚˜ë©??ë™ ?œë¡­?˜ë„ë¡?on commit drop)
   drop table if exists tmp_final_ids;
   create temporary table tmp_final_ids on commit drop as
   with
@@ -595,7 +600,7 @@ begin
     limit v_count
   ) f;
 
-  -- 6) ?�션 ?�성 (?�략 기록??tmp_final_ids 개수 ?�용)
+  -- 6) ?¸ì…˜ ?ì„± (?„ëžµ ê¸°ë¡??tmp_final_ids ê°œìˆ˜ ?¬ìš©)
   insert into public.sessions(user_id, status, target_item_count, started_at, strategy_json)
   values (
     p_user_id,
@@ -612,7 +617,7 @@ begin
   )
   returning id into v_session_id;
 
-  -- 7) ?�냅???�결 (tmp_final_ids ?�사??
+  -- 7) ?¤ëƒ…???™ê²° (tmp_final_ids ?¬ì‚¬??
   insert into public.session_items(session_id, item_id, order_index, snapshot_json)
   select v_session_id,
          i.id,
@@ -620,7 +625,7 @@ begin
          jsonb_build_object(
            'id', i.id,
            'type', i.type,
-           'level', i.level,  -- ?�수�??�??보증
+           'level', i.level,  -- ?•ìˆ˜ë¡??€??ë³´ì¦
            'difficulty', i.difficulty,
            'concept_key', i.concept_key,
            'source_ko', i.source_ko,
@@ -651,10 +656,10 @@ $$;
 
 grant execute on function public.get_concepts_ko(text[]) to authenticated;
 -------------------------
--- 경로: supabase/migrations/20250916_level_functions.sql
--- ??��: ?�벨 ?�계·?�정·?�션 ?�성 ?�수 ?�의
--- ?�존관�? users, sessions, attempts, grades, user_concept_status, items, policy_level_* ?�이�? policy_thresholds, policy_type_weights
--- ?�함 ?�수: normalize_level_mix, get_user_level_stats, get_difficulty_adjustment, evaluate_user_level_progress, auto_level_up, start_session_custom
+-- ê²½ë¡œ: supabase/migrations/20250916_level_functions.sql
+-- ??• : ?ˆë²¨ ?µê³„Â·?ì •Â·?¸ì…˜ ?ì„± ?¨ìˆ˜ ?•ì˜
+-- ?˜ì¡´ê´€ê³? users, sessions, attempts, grades, user_concept_status, items, policy_level_* ?Œì´ë¸? policy_thresholds, policy_type_weights
+-- ?¬í•¨ ?¨ìˆ˜: normalize_level_mix, get_user_level_stats, get_difficulty_adjustment, evaluate_user_level_progress, auto_level_up, start_session_custom
 
 set check_function_bodies = on;
 
@@ -698,7 +703,7 @@ begin
   return v_result;
 end;
 $$;
--- normalize_level_mix: ?�벨 분포 JSON ?�계 1.0 ?�규??
+-- normalize_level_mix: ?ˆë²¨ ë¶„í¬ JSON ?©ê³„ 1.0 ?•ê·œ??
 
 create or replace function get_user_level_stats(p_user_id uuid)
 returns table (
@@ -782,7 +787,7 @@ begin
 end;
 $$;
 
--- get_user_level_stats: 최근 ?�션·개념 집계 반환
+-- get_user_level_stats: ìµœê·¼ ?¸ì…˜Â·ê°œë… ì§‘ê³„ ë°˜í™˜
 
 
 create or replace function get_difficulty_adjustment(p_user_id uuid)
@@ -811,7 +816,7 @@ begin
 
   if v_level is null then
     applied := false;
-    reason := '?�용???�벨 ?�보 ?�음';
+    reason := '?¬ìš©???ˆë²¨ ?•ë³´ ?†ìŒ';
     policy_level := null;
     recent_correct_rate := 0;
     low_box_concept_count := 0;
@@ -821,7 +826,7 @@ begin
 
   policy_level := v_level;
 
-  -- 최근 ?�답�?
+  -- ìµœê·¼ ?•ë‹µë¥?
   with recent_sessions as (
     select s.id
     from sessions s
@@ -847,7 +852,10 @@ begin
   into recent_correct_rate
   from recent_labels;
 
-  -- ??? 박스 개수
+  if v_threshold_rate > 1 then
+    v_threshold_rate := v_threshold_rate / 100;
+  end if;
+  -- ??? ë°•ìŠ¤ ê°œìˆ˜
   select coalesce(gs.low_box_concept_count, 0)
   into low_box_concept_count
   from get_user_level_stats(p_user_id) as gs;
@@ -859,7 +867,7 @@ begin
 
   if v_condition is null or adjusted_mix is null then
     applied := false;
-    reason := '조정 ?�책 ?�음';
+    reason := 'ì¡°ì • ?•ì±… ?†ìŒ';
     adjusted_mix := null;
     return next;
   end if;
@@ -870,13 +878,13 @@ begin
   if recent_correct_rate < v_threshold_rate
      and low_box_concept_count >= v_threshold_low then
     applied := true;
-    reason := format('최근 ?�답�?%.2f < ?�책 %.2f, ??? 박스 %s ??%s',
+    reason := format('ìµœê·¼ ?•ë‹µë¥?%.2f < ?•ì±… %.2f, ??? ë°•ìŠ¤ %s ??%s',
                      recent_correct_rate, v_threshold_rate,
                      low_box_concept_count, v_threshold_low);
     adjusted_mix := normalize_level_mix(adjusted_mix);
   else
     applied := false;
-    reason := '조건 미충�?;
+    reason := 'ì¡°ê±´ ë¯¸ì¶©ì¡?;
     adjusted_mix := null;
   end if;
 
@@ -885,7 +893,7 @@ end;
 $$;
 
 
--- get_difficulty_adjustment: 최근 ?�과 기반 ?�이??조정 ?�정
+-- get_difficulty_adjustment: ìµœê·¼ ?±ê³¼ ê¸°ë°˜ ?œì´??ì¡°ì • ?ì •
 
 create or replace function evaluate_user_level_progress(p_user_id uuid)
 returns jsonb
@@ -909,7 +917,15 @@ begin
   if v_current is null then
     return jsonb_build_object(
       'eligible', false,
-      'reason', '?�벨 ?�보 ?�음'
+  if v_policy.min_correct_rate is not null and v_policy.min_correct_rate > 1 then
+    v_policy.min_correct_rate := v_policy.min_correct_rate / 100;
+  end if;
+
+  if v_policy.min_box_level_ratio is not null and v_policy.min_box_level_ratio > 1 then
+    v_policy.min_box_level_ratio := v_policy.min_box_level_ratio / 100;
+  end if;
+
+      'reason', '?ˆë²¨ ?•ë³´ ?†ìŒ'
     );
   end if;
 
@@ -922,7 +938,7 @@ begin
   if not found then
     return jsonb_build_object(
       'eligible', false,
-      'reason', '?�음 ?�벨 ?�책 미정??,
+      'reason', '?¤ìŒ ?ˆë²¨ ?•ì±… ë¯¸ì •??,
       'current_level', v_current,
       'target_level', v_target
     );
@@ -932,20 +948,20 @@ begin
   from get_user_level_stats(p_user_id);
 
   if coalesce(v_stats.total_attempts, 0) < v_policy.min_total_attempts then
-    v_reason := format('?�적 ?�도??%s < %s',
+    v_reason := format('?„ì  ?œë„??%s < %s',
                        coalesce(v_stats.total_attempts, 0),
                        v_policy.min_total_attempts);
   elsif coalesce(v_stats.recent_correct_rate, 0) < v_policy.min_correct_rate then
-    v_reason := format('최근 ?�답�?%.2f < %.2f',
+    v_reason := format('ìµœê·¼ ?•ë‹µë¥?%.2f < %.2f',
                        coalesce(v_stats.recent_correct_rate, 0),
                        v_policy.min_correct_rate);
   elsif coalesce(v_stats.stable_concept_ratio, 0) < v_policy.min_box_level_ratio then
-    v_reason := format('?�정 비율 %.2f < %.2f',
+    v_reason := format('?ˆì • ë¹„ìœ¨ %.2f < %.2f',
                        coalesce(v_stats.stable_concept_ratio, 0),
                        v_policy.min_box_level_ratio);
   else
     v_pass := true;
-    v_reason := '?�책 충족';
+    v_reason := '?•ì±… ì¶©ì¡±';
   end if;
 
   return jsonb_build_object(
@@ -957,7 +973,7 @@ begin
   );
 end;
 $$;
--- evaluate_user_level_progress: ?�급 가???��? ?�정
+-- evaluate_user_level_progress: ?¹ê¸‰ ê°€???¬ë? ?ì •
 
 create or replace function auto_level_up(p_user_id uuid, p_source text default 'auto_assessment')
 returns jsonb
@@ -999,7 +1015,7 @@ begin
   );
 end;
 $$;
--- auto_level_up: ?�급 처리 �??�력 기록
+-- auto_level_up: ?¹ê¸‰ ì²˜ë¦¬ ë°??´ë ¥ ê¸°ë¡
 
 create or replace function public.start_session_custom(
   p_user_id uuid,
@@ -1253,12 +1269,12 @@ begin
   return v_session_id;
 end;
 $$;
--- start_session_custom: ?�책 기반?�로 ?�션 ?�성 + ?�이??조정 ?�보 기록
+-- start_session_custom: ?•ì±… ê¸°ë°˜?¼ë¡œ ?¸ì…˜ ?ì„± + ?œì´??ì¡°ì • ?•ë³´ ê¸°ë¡
 -----------------------
--- 0) 준�? UUID ?�성??
+-- 0) ì¤€ë¹? UUID ?ì„±??
 create extension if not exists pgcrypto;
 
--- 1) 공통 updated_at ?�리�?(중복 ?�성 방�?)
+-- 1) ê³µí†µ updated_at ?¸ë¦¬ê±?(ì¤‘ë³µ ?ì„± ë°©ì?)
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -1271,7 +1287,7 @@ begin
 end;
 $$;
 
--- 2) products: ?�매 ?�품 ?�의
+-- 2) products: ?ë§¤ ?í’ˆ ?•ì˜
 create table if not exists public.products (
   id text primary key,
   display_name text not null,
@@ -1286,7 +1302,7 @@ create trigger trg_products_updated_at
 before update on public.products
 for each row execute function public.touch_updated_at();
 
--- 3) payments: 결제 ?�청/?�답 ?�건
+-- 3) payments: ê²°ì œ ?”ì²­/?‘ë‹µ ?¨ê±´
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -1311,7 +1327,7 @@ create trigger trg_payments_updated_at
 before update on public.payments
 for each row execute function public.touch_updated_at();
 
--- 4) payment_events: ?�훅 �??�태 변�?로그
+-- 4) payment_events: ?¹í›… ë°??íƒœ ë³€ê²?ë¡œê·¸
 create table if not exists public.payment_events (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references public.payments(id) on delete cascade,
@@ -1323,7 +1339,7 @@ create table if not exists public.payment_events (
 create index idx_payment_events_payment_id on public.payment_events(payment_id);
 create index idx_payment_events_event_type on public.payment_events(event_type);
 
--- 5) entitlements: ?�용�?권리) ?�이�?
+-- 5) entitlements: ?´ìš©ê¶?ê¶Œë¦¬) ?Œì´ë¸?
 create table if not exists public.entitlements (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -1341,7 +1357,7 @@ create index idx_entitlements_user_id on public.entitlements(user_id);
 create index idx_entitlements_active on public.entitlements(is_active);
 create index idx_entitlements_end_at on public.entitlements(end_at);
 
--- is_active 갱신 + users.pro_until 캐시 반영???�수/?�리�?
+-- is_active ê°±ì‹  + users.pro_until ìºì‹œ ë°˜ì˜???¨ìˆ˜/?¸ë¦¬ê±?
 create or replace function public.entitlements_after_change()
 returns trigger
 language plpgsql
@@ -1351,7 +1367,7 @@ as $$
 declare
   v_latest_until timestamptz;
 begin
-  -- is_active: start_at <= now() < end_at 조건???�라 갱신
+  -- is_active: start_at <= now() < end_at ì¡°ê±´???°ë¼ ê°±ì‹ 
   if (TG_OP = 'INSERT' or TG_OP = 'UPDATE') then
     if new.start_at <= now() and new.end_at > now() then
       new.is_active := true;
@@ -1360,7 +1376,7 @@ begin
     end if;
   end if;
 
-  -- ?�용??pro_until 캐시 ?�데?�트(?�택 ?�드가 존재???�만)
+  -- ?¬ìš©??pro_until ìºì‹œ ?…ë°?´íŠ¸(? íƒ ?„ë“œê°€ ì¡´ìž¬???Œë§Œ)
   begin
     select max(end_at) into v_latest_until
     from public.entitlements
@@ -1370,7 +1386,7 @@ begin
     set pro_until = v_latest_until
     where id = new.user_id;
   exception when undefined_column then
-    -- users.pro_until 컬럼???�으�?무시
+    -- users.pro_until ì»¬ëŸ¼???†ìœ¼ë©?ë¬´ì‹œ
     null;
   end;
 
@@ -1386,11 +1402,11 @@ create trigger trg_entitlements_updated_at
 before update on public.entitlements
 for each row execute function public.touch_updated_at();
 
--- 5-1) users ?�이블에 pro_until 캐시 컬럼 추�? (?�택)
+-- 5-1) users ?Œì´ë¸”ì— pro_until ìºì‹œ ì»¬ëŸ¼ ì¶”ê? (? íƒ)
 alter table public.users
   add column if not exists pro_until timestamptz;
 
--- 6) ?�션 ?�작 가???�수 (무료 1??+ ?�용�?체크)
+-- 6) ?¸ì…˜ ?œìž‘ ê°€???¨ìˆ˜ (ë¬´ë£Œ 1??+ ?´ìš©ê¶?ì²´í¬)
 create or replace function public.can_start_session(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -1405,14 +1421,14 @@ declare
   v_can_start boolean := false;
   v_reason text := 'NO_FREE_LEFT';
 begin
-  -- ?�늘 ?�료???�션 ??
+  -- ?¤ëŠ˜ ?„ë£Œ???¸ì…˜ ??
   select count(*) into v_completed_today
   from public.sessions
   where user_id = p_user_id
     and status = 'completed'
     and (timezone('Asia/Seoul', ended_at))::date = v_today;
 
-  -- ?�성 ?�용�??��?
+  -- ?œì„± ?´ìš©ê¶??¬ë?
   select exists (
     select 1
     from public.entitlements
@@ -1421,7 +1437,7 @@ begin
       and start_at <= now()
   ) into v_has_entitlement;
 
-  -- pro_until 캐시 (?�으�?null)
+  -- pro_until ìºì‹œ (?†ìœ¼ë©?null)
   begin
     select pro_until into v_pro_until
     from public.users where id = p_user_id;
@@ -1446,27 +1462,27 @@ begin
 end;
 $$;
 
--- 7) RLS ?�책 ?�정
+-- 7) RLS ?•ì±… ?¤ì •
 alter table public.products enable row level security;
 alter table public.payments enable row level security;
 alter table public.payment_events enable row level security;
 alter table public.entitlements enable row level security;
 
--- products: ?�구??active ?�품�?조회 가???�택?�으�?공개)
+-- products: ?„êµ¬??active ?í’ˆë§?ì¡°íšŒ ê°€??? íƒ?ìœ¼ë¡?ê³µê°œ)
 drop policy if exists products_select_active on public.products;
 create policy products_select_active
 on public.products
 for select
 using (is_active = true);
 
--- payments: 본인?� ?�신??결제�?조회
+-- payments: ë³¸ì¸?€ ?ì‹ ??ê²°ì œë§?ì¡°íšŒ
 drop policy if exists payments_select_own on public.payments;
 create policy payments_select_own
 on public.payments
 for select
 using (auth.uid() = user_id);
 
--- payment_events: 본인 결제 로그�?조회
+-- payment_events: ë³¸ì¸ ê²°ì œ ë¡œê·¸ë§?ì¡°íšŒ
 drop policy if exists payment_events_select_own on public.payment_events;
 create policy payment_events_select_own
 on public.payment_events
@@ -1477,14 +1493,14 @@ using (
   )
 );
 
--- entitlements: 본인 권리�?조회
+-- entitlements: ë³¸ì¸ ê¶Œë¦¬ë§?ì¡°íšŒ
 drop policy if exists entitlements_select_own on public.entitlements;
 create policy entitlements_select_own
 on public.entitlements
 for select
 using (auth.uid() = user_id);
 
--- ?�비??�??�용 ?�체 권한 (INSERT/UPDATE/DELETE)
+-- ?œë¹„??ë¡??„ìš© ?„ì²´ ê¶Œí•œ (INSERT/UPDATE/DELETE)
 drop policy if exists payments_service_all on public.payments;
 create policy payments_service_all
 on public.payments
@@ -1506,7 +1522,7 @@ for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
--- (?�요 ?? products ?�정???�비??롤만 ?�용
+-- (?„ìš” ?? products ?˜ì •???œë¹„??ë¡¤ë§Œ ?ˆìš©
 drop policy if exists products_service_all on public.products;
 create policy products_service_all
 on public.products
